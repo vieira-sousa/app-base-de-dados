@@ -106,11 +106,14 @@ class ConfigCampos(BaseModel):
 class ConfigLLM(BaseModel):
     ativo: bool = True
     url: str = "http://localhost:11434"
-    modelo: str = "qwen2.5:7b"
+    modelo: str = "qwen2.5:3b"
     temperatura: float = 0.0
     contexto_tokens: int = 8192
-    max_caracteres_documento: int = 20000
-    timeout_s: int = 600
+    max_caracteres_documento: int = 16000
+    timeout_s: int = 900
+    num_gpu: int | None = None        # 0 = forçar CPU; None = Ollama decide
+    num_threads: int | None = None    # None = Ollama decide
+    llm_em_hibridos: Literal["sempre", "se_regex_falhar"] = "sempre"
 
 
 class ConfigBaseDados(BaseModel):

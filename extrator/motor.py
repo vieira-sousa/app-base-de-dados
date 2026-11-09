@@ -199,8 +199,23 @@ def processar_doente(
             continue
         por_doc: list[tuple[Documento, dict[str, ResultadoCampo]]] = []
         for doc in docs:
+            # regex primeiro (instantâneo)
+            regex_cands: dict[str, Candidato | None] = {}
+            for c in campos:
+                if c.usa_regex:
+                    try:
+                        regex_cands[c.nome] = _regex_campo(c, doc.texto)
+                    except Exception as e:  # um extrator com erro não deve parar o doente
+                        res.avisos.append(f"{doc.nome}: regex '{c.nome}' falhou ({e})")
+            # LLM: campos 'llm' sempre; campos 'hibrido' conforme llm_em_hibridos
+            so_se_falhar = llm is not None and llm.cfg.llm_em_hibridos == "se_regex_falhar"
+            campos_llm = [
+                c for c in campos
+                if c.metodo == "llm" or (c.metodo == "hibrido" and not (
+                    so_se_falhar and regex_cands.get(c.nome) is not None
+                    and regex_cands[c.nome].valor is not None))
+            ]
             llm_cands: dict[str, Candidato] = {}
-            campos_llm = [c for c in campos if c.usa_llm]
             if llm and campos_llm:
                 info(f"{id_doente}: LLM em {doc.nome} ({len(campos_llm)} campos)")
                 try:
@@ -209,13 +224,7 @@ def processar_doente(
                     res.avisos.append(f"{doc.nome}: LLM falhou ({e.__class__.__name__}: {e})")
             resultados = {}
             for c in campos:
-                r = None
-                if c.usa_regex:
-                    try:
-                        r = _regex_campo(c, doc.texto)
-                    except Exception as e:  # um extrator com erro não deve parar o doente
-                        res.avisos.append(f"{doc.nome}: regex '{c.nome}' falhou ({e})")
-                rc = _fundir(c, r, llm_cands.get(c.nome))
+                rc = _fundir(c, regex_cands.get(c.nome), llm_cands.get(c.nome))
                 rc.ficheiro = doc.nome
                 if llm is None and c.metodo == "llm":
                     rc.notas.append("LLM desativado")

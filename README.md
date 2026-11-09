@@ -41,22 +41,31 @@ PDFs por doente (entrada/<nº processo>/*.pdf)
 
 Porquê híbrido: as regex são determinísticas e exatas para formatos padronizados (pTNM, números); o LLM lida com texto livre. Onde ambos se aplicam, a concordância serve de controlo de qualidade. Valores numéricos de análises são extraídos só por regex, porque é aí que os modelos pequenos mais erram.
 
-## Instalação
+## Instalação (Windows 10)
 
-1. **Python 3.11+** (Windows: python.org, marcar "Add to PATH").
-2. Na pasta do projeto:
-   ```
-   python -m venv .venv
-   .venv\Scripts\activate        (Windows)   |   source .venv/bin/activate   (Mac/Linux)
-   pip install -r requirements.txt
-   ```
-3. **Ollama** (opcional, mas recomendado): instalar de ollama.com e depois
-   ```
-   ollama pull qwen2.5:7b
-   ```
-   ~5 GB de disco; precisa de ~8 GB de RAM. Corre em CPU (≈1–3 min por relatório) ou muito mais rápido com GPU. Depois de descarregado funciona sem internet. Sem Ollama, a app funciona só com regex (`--sem-llm`).
-4. **OCR** (só para PDFs digitalizados/fotografados): `ocrmypdf` + `tesseract-ocr-por`.
-5. Verificar: `python -m extrator verificar`
+1. **Python 3.12**: https://www.python.org/downloads/windows/ — marcar *"Add python.exe to PATH"*.
+2. **Ollama**: https://ollama.com/download/windows (fica a correr na barra de tarefas).
+3. Descarregar este projeto e fazer **duplo clique em `instalar.bat`**: cria o ambiente, instala as dependências, descarrega o modelo `qwen2.5:3b` (~1,9 GB) e verifica tudo. Só este passo precisa de internet.
+4. Usar: **duplo clique em `iniciar.bat`** (abre o browser em http://localhost:8501).
+
+Mac/Linux: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && ollama pull qwen2.5:3b`.
+
+### Escolha do modelo para o seu hardware
+
+Configurado em `config/llm.yaml` para **8 GB RAM / i5 / GeForce 940MX 2 GB**:
+
+| Modelo | Disco/RAM | Notas |
+|---|---|---|
+| `qwen2.5:3b` (padrão) | ~1,9 GB | bom em JSON e português; ponto de partida |
+| `llama3.2:3b` | ~2,0 GB | alternativa |
+| `gemma3:4b` | ~3,3 GB | possivelmente mais preciso, mais lento |
+| `qwen2.5:7b` | ~4,7 GB | só com 16 GB de RAM |
+
+- Com 8 GB, modelos 7-8B obrigam o Windows a usar disco como memória e ficam muito lentos.
+- A 940MX (2 GB) acelera pouco. Se o Ollama der erros de GPU/CUDA, pôr `num_gpu: 0` em `config/llm.yaml`.
+- Comparar modelos na sua máquina: `testar_llm.bat` ou `testar_llm.bat gemma3:4b` (mostra tempo por relatório e acerto num relatório fictício).
+- O tempo em CPU é da ordem de minutos por relatório. Para muitos doentes: deixar a correr à noite, com o portátil ligado à corrente e fechar o browser e outros programas. Para testes rápidos: `llm_em_hibridos: se_regex_falhar` (o LLM só trata o que a regex não encontrou).
+- OCR (PDFs digitalizados) no Windows exige instalar Tesseract e Ghostscript; só é necessário se os PDFs não tiverem texto selecionável.
 
 ## Utilização
 
@@ -79,10 +88,7 @@ Copiar `config/base_dados.exemplo.yaml` para `config/base_dados.yaml` e ajustar:
 
 ### 3. Correr
 
-**Interface gráfica**
-```
-streamlit run app.py
-```
+**Interface gráfica**: `iniciar.bat` (ou `streamlit run app.py`)
 Abre em http://localhost:8501 com três separadores: Extrair → Rever → Preencher BD.
 
 **Linha de comandos**

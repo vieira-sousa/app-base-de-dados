@@ -137,6 +137,51 @@ def cmd_testar(args) -> int:
     return 0
 
 
+def cmd_testar_llm(args) -> int:
+    """Mede velocidade e acerto do LLM num relatório fictício incluído (tests/fixtures)."""
+    import time
+
+    from .esquema import RAIZ, coagir
+
+    fixtures = RAIZ / "tests" / "fixtures"
+    casos = [
+        ("ap_reto.txt", "anatomia_patologica", {
+            "pT": "T3", "pN": "N1b", "ganglios_examinados": 18, "ganglios_positivos": 2,
+            "margem_r": "R0", "grau_diferenciacao": "G2", "invasao_linfovascular": True,
+            "invasao_perineural": False, "estado_mmr": "pMMR", "tamanho_tumor_cm": 3.5}),
+        ("cirurgia_reto.txt", "cirurgia", {
+            "abordagem": "laparoscopica", "conversao": False, "perdas_hematicas_ml": 150,
+            "estoma": "ileostomia", "anastomose": True, "anastomose_tecnica": "mecanica"}),
+    ]
+    args.sem_llm = False
+    llm = _cliente_llm(args)
+    if llm is None:
+        return 1
+    cfg = carregar_campos(args.campos)
+    acertos = total = 0
+    for ficheiro, tipo, esperado in casos:
+        texto = (fixtures / ficheiro).read_text(encoding="utf-8")
+        campos = [c for c in cfg.campos if c.documento == tipo and c.usa_llm]
+        print(f"\n{ficheiro}: {len(campos)} campos — a processar (pode demorar alguns minutos em CPU)...", flush=True)
+        t0 = time.time()
+        try:
+            res = llm.extrair(texto, tipo, campos, ficheiro)
+        except Exception as e:
+            print(f"  ERRO: {e.__class__.__name__}: {e}")
+            return 1
+        print(f"  tempo: {time.time() - t0:.0f} s")
+        for c in campos:
+            if c.nome not in esperado:
+                continue
+            obtido = coagir(c.tipo, res[c.nome].valor, c.opcoes)[0] if c.nome in res else None
+            certo = obtido == esperado[c.nome]
+            acertos += certo
+            total += 1
+            print(f"  {'ok ' if certo else 'ERR'} {c.nome:24} esperado={esperado[c.nome]!s:14} obtido={obtido!s}")
+    print(f"\nAcerto: {acertos}/{total} ({100 * acertos / max(total, 1):.0f}%) com {llm.cfg.modelo}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="extrator", description="Extração local de dados clínicos de PDFs.")
     ap.add_argument("--campos", default=None, help="caminho para campos.yaml")
@@ -169,6 +214,17 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--sem-ocr", action="store_true")
     s.add_argument("--modelo")
     s.set_defaults(fn=cmd_testar)
+
+    s = sub.add_parser("testar-llm", help="mede velocidade e acerto do LLM num relatório fictício")
+    s.add_argument("--modelo", help="modelo a testar (ex.: gemma3:4b)")
+    s.set_defaults(fn=cmd_testar_llm, sem_llm=False)
+
+    # consola do Windows: evitar erros com caracteres como ≠ ou ⚠
+    for fluxo in (sys.stdout, sys.stderr):
+        try:
+            fluxo.reconfigure(errors="replace")
+        except AttributeError:
+            pass
 
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING, format="%(levelname)s %(message)s")

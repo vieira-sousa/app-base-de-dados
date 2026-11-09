@@ -31,7 +31,7 @@ SISTEMA = (
     "de cirurgia geral num hospital português. Regras:\n"
     "1. Extrai APENAS informação explicitamente escrita no documento. Nunca deduzas nem inventes.\n"
     "2. Se a informação não estiver no documento, usa valor null e citacao \"\".\n"
-    "3. Em 'citacao' copia literalmente um excerto curto (máx. 150 caracteres) do documento que suporta o valor.\n"
+    "3. Em 'citacao' copia literalmente um excerto curto (máx. 100 caracteres) do documento que suporta o valor.\n"
     "4. Datas no formato AAAA-MM-DD. Números sem unidades, com ponto decimal.\n"
     "5. Em campos de categoria usa exatamente uma das opções permitidas.\n"
     "6. Se houver vários tumores/peças, refere-te à lesão principal (maior estadio) e explica em 'citacao'."
@@ -133,6 +133,10 @@ class ClienteLLM:
             "think": False,
             "options": {"temperature": self.cfg.temperatura, "num_ctx": self.cfg.contexto_tokens, "seed": 42},
         }
+        if self.cfg.num_gpu is not None:
+            corpo["options"]["num_gpu"] = self.cfg.num_gpu
+        if self.cfg.num_threads is not None:
+            corpo["options"]["num_thread"] = self.cfg.num_threads
         r = requests.post(f"{self.cfg.url}/api/chat", json=corpo, timeout=self.cfg.timeout_s)
         if r.status_code == 400 and "think" in r.text:
             corpo.pop("think")  # modelos/versões sem suporte para 'think'

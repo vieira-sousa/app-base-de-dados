@@ -195,3 +195,45 @@ def test_revisao_e_preenchimento(pasta_doente, cfg, tmp_path):
     assert linha["ILV"] == 1
     assert linha["CEA pré-op"] == 7.2
     assert s.cell(2, 2).value is None                  # outro doente intacto
+
+
+# ------------------------------------------- modo rápido e comando testar-llm
+def _ollama_falso(monkeypatch, chamadas):
+    import json as _j
+
+    def falso_get(url, timeout=None):
+        return RespostaFalsa({"models": [{"name": "qwen2.5:3b"}]})
+
+    def falso_post(url, json=None, timeout=None):
+        props = list(json["format"]["properties"])
+        chamadas.append(props)
+        resp = {k: {"valor": None, "citacao": ""} for k in props}
+        if "pT" in props:
+            resp["pT"] = {"valor": "T3", "citacao": "ypT3"}
+        if "estado_mmr" in props:
+            resp["estado_mmr"] = {"valor": "pMMR", "citacao": "(pMMR)"}
+        return RespostaFalsa({"message": {"content": _j.dumps(resp)}})
+
+    monkeypatch.setattr("extrator.llm.requests.get", falso_get)
+    monkeypatch.setattr("extrator.llm.requests.post", falso_post)
+
+
+def test_llm_so_se_regex_falhar(pasta_doente, cfg, monkeypatch):
+    chamadas = []
+    _ollama_falso(monkeypatch, chamadas)
+    llm = ClienteLLM(ConfigLLM(llm_em_hibridos="se_regex_falhar"))
+    r = processar_doente(pasta_doente, cfg, llm=llm)
+    pedidos_ap = [c for c in chamadas if "estado_mmr" in c][0]
+    assert "pT" not in pedidos_ap and "ganglios_positivos" not in pedidos_ap   # regex já encontrou
+    assert "tipo_histologico" in pedidos_ap                                    # campo só-LLM
+    assert r.campos["pT"].valor == "T3" and r.campos["pT"].fonte == "regex"
+    assert r.campos["estado_mmr"].valor == "pMMR"
+
+
+def test_comando_testar_llm(monkeypatch, capsys):
+    from extrator.cli import main
+
+    _ollama_falso(monkeypatch, [])
+    assert main(["testar-llm"]) == 0
+    out = capsys.readouterr().out
+    assert "Acerto:" in out and "qwen2.5:3b" in out

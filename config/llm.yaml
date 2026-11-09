@@ -1,14 +1,30 @@
 # LLM local via Ollama (https://ollama.com). Nada sai do computador.
 # Por segurança, só são aceites URLs localhost.
+#
+# Configurado para: Windows 10, 8 GB RAM, i5 2,5 GHz, GeForce 940MX 2 GB.
+# Com 8 GB, modelos de 7-8B (~5 GB) deixam o Windows sem memória -> muito lento.
+# Usar modelos de 3-4B. Comparar na própria máquina com:
+#     python -m extrator testar-llm --modelo <nome>
+#
+#   qwen2.5:3b     ~1,9 GB  — recomendado para começar (bom em JSON e português)
+#   llama3.2:3b    ~2,0 GB  — alternativa
+#   gemma3:4b      ~3,3 GB  — possivelmente mais preciso, mais lento
+#   qwen2.5:7b     ~4,7 GB  — só com 16 GB de RAM
 ativo: true
 url: http://localhost:11434
-# Modelos sugeridos (testar com os seus PDFs e escolher o melhor):
-#   qwen2.5:7b      ~5 GB RAM  — bom português e JSON, corre em CPU (lento) ou GPU
-#   qwen2.5:14b     ~9 GB RAM  — mais preciso, precisa de mais memória
-#   gemma3:12b      ~8 GB RAM
-#   llama3.1:8b     ~5 GB RAM
-modelo: qwen2.5:7b
+modelo: qwen2.5:3b
 temperatura: 0.0
-contexto_tokens: 8192          # aumentar (16384) se os relatórios forem longos e houver RAM
-max_caracteres_documento: 20000
-timeout_s: 600
+contexto_tokens: 8192           # chega para relatórios de ~4-5 páginas
+max_caracteres_documento: 16000
+timeout_s: 900                  # CPU lento: dar tempo
+
+# A 940MX (2 GB) só acelera uma parte do modelo. Se o Ollama der erros de
+# memória da GPU ou CUDA, pôr num_gpu: 0 (força CPU).
+num_gpu:
+num_threads:
+
+# Campos 'hibrido' (regex + LLM):
+#   sempre          -> o LLM confirma também o que a regex encontrou (mais lento, deteta discordâncias)
+#   se_regex_falhar -> o LLM só é chamado para os campos que a regex não encontrou (mais rápido)
+# Sugestão: 'sempre' e deixar a correr durante a noite; 'se_regex_falhar' para testes rápidos.
+llm_em_hibridos: sempre
