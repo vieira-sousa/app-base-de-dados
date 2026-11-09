@@ -26,6 +26,8 @@ class Campo(BaseModel):
     descricao: str = ""
     tipo: TipoCampo = "texto"
     documento: TipoDoc
+    # se o documento principal não tiver o valor, tentar a regex neste (ex. localização no relatório operatório)
+    documento_alternativo: TipoDoc | None = None
     metodo: Literal["regex", "llm", "hibrido", "derivado"] = "hibrido"
     regex: str | None = None
     padrao: str | None = None
@@ -103,6 +105,8 @@ class ConfigCampos(BaseModel):
     campos: list[Campo]
     analises: list[ParametroAnalise] = []
     campo_data_cirurgia: str = "data_cirurgia"   # usado pelas regras temporais das análises
+    # regex que a AP tem de conter para o doente ser elegível (ex. "carcinoma"); senão gera aviso
+    elegibilidade_ap: str | None = None
 
     @model_validator(mode="after")
     def _unicos(self):

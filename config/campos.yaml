@@ -16,6 +16,7 @@
 # =============================================================================
 
 campo_data_cirurgia: date_surgery
+elegibilidade_ap: carcinoma        # AP sem "carcinoma" -> aviso (doente elegível?)
 
 campos:
 
@@ -77,7 +78,8 @@ campos:
     descricao: O tumor apresentou-se com oclusão intestinal (indicação/contexto da cirurgia)?
     tipo: booleano
     documento: cirurgia
-    metodo: llm
+    metodo: hibrido
+    regex: colon.oclusao
 
   - nome: perforation
     descricao: O tumor apresentou-se perfurado ANTES da cirurgia (forma de apresentação)?
@@ -162,7 +164,7 @@ campos:
     documento: cirurgia
     metodo: hibrido
     regex: colon.anastomose_intracorporea
-    nao_aplicavel_se: ["approach == aberta", "anastomosis == false"]
+    nao_aplicavel_se: ["approach == aberta", "anastomosis == false", "conversion == true"]
 
   - nome: metastasectomy_same_operation
     descricao: Foi feita metastasectomia (ex. hepática) na mesma cirurgia?
@@ -183,6 +185,7 @@ campos:
     tipo: categoria
     opcoes: [cego, ascendente, angulo_hepatico, transverso_proximal, outra]
     documento: anatomia_patologica
+    documento_alternativo: cirurgia
     metodo: hibrido
     regex: colon.localizacao
 

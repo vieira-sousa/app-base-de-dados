@@ -1,0 +1,28 @@
+                                                                                                                                     *1111111*
+                                                                            Doente Ficticio Um
+                                                                            Masculino    Dta Nasc: 1950-01-01     (74 anos)
+UNIDADE LOCAL DE SAUDE FICTICIA
+ Data Intervenção: 2024-03-08                         Anestesia:                                   Tipo Interv. : PROD. PROGRAMADA BASE
+ Especialidade do Bloco: C.GERAL-UF COLO-RETAL                                              Tipo Cirurgia: CONTAMINADA    Nº Interv. : 00000002
+  Diagnóstico:               Neoplasia Maligna Do Cego
+
+ Intervenção Principal                   Resseção Do Intestino Grosso Direito, Abordagem Percutânea Endoscópica
+                      Equipa: Med. Cirurgiao Ficticio          ( Cirurgiao - Principal )
+
+                                                                      Relato Cirúrgico
+        HEMICOLECTOMIA DIREITA ASSISTIDA POR LAPAROSCOPIA
+        #Neoplasia do cego
+
+        Confecção de pneumoperitoneu por agulha de Veress. Colocação de 4 trocares.
+        Sem ascite. Sem implantes peritoneias. Sem lesões hepáticas suspeitas.
+        Laqueação dos vasos ileocólicos na origem. Mobilização do ângulo hepático.
+        Incisão de assistência periumbilical e exteriorização do cólon direito.
+        Confeção de anastomose ileo-cólica L-L mecânica com GIA 80.
+        Encerramento da parede por planos. Agrafos na pele.
+        Perdas hemáticas estimadas de 100 mL.
+
+  Processado por computador - SClínico                                                                                                                Página 1
+                                                                                                    *1111111*
+                 PORTO, 01 de Janeiro de 2026
+                                                                                    O Cirurgião
+                                                     *99999*                 ( CIRURGIAO FICTICIO )

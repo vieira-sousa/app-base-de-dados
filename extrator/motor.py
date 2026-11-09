@@ -15,7 +15,7 @@ from .esquema import Campo, ConfigCampos, coagir
 from .llm import ClienteLLM
 from .pdf_texto import Documento, ler_documento, listar_documentos
 from .regras import REGISTO, Candidato
-from .regras.anatomia_patologica import RE_T
+from .regras.anatomia_patologica import RE_T, varios_tumores
 from .regras.comum import data_documento, processo
 from .utils import excerto, normalizar, normalizar_id
 
@@ -291,6 +291,37 @@ def processar_doente(
                     final.estado = REVER
                     final.notas.append("outros documentos: " + "; ".join(f"{f}={v!r}" for f, v in outros.items()))
             res.campos[c.nome] = final
+
+    # 2a. documento alternativo (só regex) para campos sem valor
+    for c in cfg.campos:
+        rc = res.campos.get(c.nome)
+        if not c.documento_alternativo or not c.usa_regex or (rc is not None and rc.valor is not None):
+            continue
+        for doc in por_tipo[c.documento_alternativo]:
+            r = _regex_campo(c, doc.texto)
+            if r is None:
+                continue
+            novo = _fundir(c, r, None)
+            if novo.valor is not None:
+                novo.ficheiro = doc.nome
+                novo.estado = REVER
+                novo.notas.append(f"sem valor em {c.documento}; obtido de {doc.nome}")
+                res.campos[c.nome] = novo
+                break
+
+    # 2b. anatomia patológica: vários tumores e elegibilidade
+    multiplos = {d.nome: msg for d in por_tipo["anatomia_patologica"] if (msg := varios_tumores(d.texto))}
+    for nome, msg in multiplos.items():
+        res.avisos.append(f"⚠ {nome}: {msg} — confirmar que os dados são do tumor do estudo")
+    for c in cfg.campos:
+        rc = res.campos.get(c.nome)
+        if c.documento == "anatomia_patologica" and rc and rc.valor is not None and rc.ficheiro in multiplos:
+            rc.estado = REVER
+            rc.notas.append("relatório com mais do que um tumor")
+    if cfg.elegibilidade_ap and por_tipo["anatomia_patologica"]:
+        if not any(re.search(cfg.elegibilidade_ap, d.texto, re.I) for d in por_tipo["anatomia_patologica"]):
+            res.avisos.append(f"⚠ Anatomia patológica sem '{cfg.elegibilidade_ap}' — neoplasia maligna? "
+                              "Confirmar se o doente é elegível para o estudo.")
 
     # 3. análises
     if cfg.analises:

@@ -1,0 +1,16 @@
+                                 Serviço de Anatomia Patológica
+    Nº Doente: 2222222            Nº Episódio: 00000004
+    Nome: DOENTE FICTICIO DOIS                                                                    Dt Nasc: 02-02-1945
+    RELATÓRIO ANATOMOPATOLÓGICO
+    MACROSCOPIA
+    Peça de hemicolectomia direita. No cego (vertente cólica da válvula ileocecal),
+    identifica-se lesão polipoide com 2,0(longitudinal)x1,5(transversal)x0,8(profundidade)cm,
+    a 3cm do topo cólico.
+    Do tecido adiposo foram isolados 19 gânglios linfáticos.
+    MICROSCOPIA
+    Adenoma túbulo-viloso com displasia de baixo e alto grau.
+    Não se identificam imagens de invasão vascular linfática ou venosa.
+    Não se identificam imagens de permeação perineural.
+    Gânglios linfáticos (n=19) sem alterações valorizáveis.
+    Topos cirúrgicos sem sinais de envolvimento neoplásico.
+    CONCLUSÃO: Adenoma túbulo-viloso com displasia de alto grau.

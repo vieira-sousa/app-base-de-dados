@@ -17,7 +17,7 @@ def _presenca(texto: str, termo: str, mencao_simples: bool = True) -> Candidato 
     c = _invasao(texto, termo, None)
     if c is not None:
         return c
-    m = re.search(rf"{NEG}\s+(?:[\wÀ-ÿ-]+\s+){{0,4}}(?:{termo})", texto, F)
+    m = re.search(rf"{NEG}\s*,?\s+(?:[\wÀ-ÿ-]+,?\s+){{0,4}}(?:{termo})", texto, F)
     if m:
         return Candidato(False, excerto(texto, m.start(), m.end()))
     if mencao_simples and (m := re.search(termo, texto, F)):
@@ -42,10 +42,18 @@ def histologia(texto: str) -> Candidato | None:
     m_diag = re.search(r"diagn[óo]stico|conclus[ãa]o", texto, F)
     secoes = [texto[m_diag.start():], texto] if m_diag else [texto]
     for sec in secoes:
-        for valor, padrao in HISTOLOGIA:
+        achados = []
+        for ordem, (valor, padrao) in enumerate(HISTOLOGIA):
             m = re.search(padrao, sec, F)
             if m:
-                return Candidato(valor, excerto(sec, m.start(), m.end()))
+                achados.append((m.start(), ordem, valor, m))
+        if achados:
+            # menção mais precoce; no mesmo sítio, o subtipo específico vence o genérico
+            _pos, _ordem, valor, m = min(achados)
+            nota = ""
+            if len({a[2] for a in achados}) > 1 and any(a[2] == "outro" for a in achados):
+                nota = "mais do que um tipo de tumor no relatório — confirmar"
+            return Candidato(valor, excerto(sec, m.start(), m.end()), nota=nota)
     return None
 
 
@@ -131,10 +139,16 @@ def budding(texto: str) -> Candidato | None:
 # ------------------------------------------------------------------- MMR / molecular
 PERDA = r"perd(?:a|ida|ido)|aus[eê]ncia|ausente|negativ[oa]|n[ãa]o\s+(?:se\s+)?(?:observa|identifica|mant[eé]m)|deficiente"
 RETIDO = r"mantid[ao]|manuten[çc][ãa]o|preservad[ao]|retid[ao]|conservad[ao]|positiv[oa]|normal|intact[ao]"
-SEPARADOR_ORACOES = re.compile(r"[;.\n]|,\s*(?=com\s|mas\s|sem\s|e\s+(?:com|perda|express))|\s+com\s+(?=express|perda|manut|aus)", re.I)
+SEPARADOR_ORACOES = re.compile(
+    r"[;.\n]|,\s*(?=com\s|mas\s|sem\s|e\s+(?:com|perda|express|estudo)|express|perda|estudo)"
+    r"|\s+com\s+(?=express|perda|manut|aus)|\s+e\s+(?=estudo|express[ãa]o|perda)", re.I)
+INCONCLUSIVO = r"inconclusiv|heterog[ée]ne|n[ãa]o\s+avali|indetermin|n[ãa]o\s+interpret"
 
 
 def _estado_proteina(texto: str, proteina: str) -> Candidato | None:
+    # juntar linhas partidas a meio da frase (mas manter tabelas "MLH1: positivo" linha a linha)
+    texto = re.sub(r"[ \t]*\n[ \t]*(?!\s*(?:MLH1|PMS2|MSH2|MSH6)\s*(?:[:\-]|\s+(?:positiv|negativ|mantid|preservad|perd|ausent|retid)))",
+                   " ", texto, flags=re.I)
     pos = 0
     for oracao in SEPARADOR_ORACOES.split(texto):
         inicio = texto.find(oracao, pos)
@@ -142,6 +156,8 @@ def _estado_proteina(texto: str, proteina: str) -> Candidato | None:
         m = re.search(rf"\b{proteina}\b", oracao, F)
         if not m:
             continue
+        if re.search(INCONCLUSIVO, oracao[m.end(): m.end() + 40], F):
+            return Candidato(None, excerto(texto, inicio, inicio + len(oracao), 10), nota=f"{proteina} inconclusivo")
         perda = [x.start() for x in re.finditer(PERDA, oracao, F)]
         retido = [x.start() for x in re.finditer(RETIDO, oracao, F)]
         if not perda and not retido:
@@ -226,10 +242,14 @@ LOCAL = [
 ]
 _LOCAIS = "|".join(p for _, p in LOCAL)
 RE_LOCAL_CONTEXTO = [
+    rf"\bn[oa]\s+({_LOCAIS})\s*(?:\([^)]*\))?\s*,?\s*(?:identifica-se|observa-se)?\s*,?\s*(?:uma\s+)?(?:neoplasia|les[ãa]o|tumor|tumefa|massa)",
+    rf"(?:adeno)?carcinoma[^.\n]{{0,60}}?\b(?:d[oa]|n[oa])\s+({_LOCAIS})",
     rf"topografia\s*[:\-]?\s*(?:c[óo]lon\s*,?\s*)?({_LOCAIS})",
     rf"(?:localiza[çc][ãa]o|sede)\s+(?:do\s+tumor\s*|tumoral\s*)?[:\-]?\s*(?:c[óo]lon\s*,?\s*)?({_LOCAIS})",
     rf"(?:adeno)?carcinoma\s+(?:\w+\s+){{0,3}}?(?:d[oa]|n[oa])\s+({_LOCAIS})",
     rf"(?:neoplasia|tumor|tumefa[çc][ãa]o|les[ãa]o|massa|ulcera[çc][ãa]o)[^.\n]{{0,60}}?(?:localizad|situad|sediad|centrad)\w*\s+(?:\w+\s+){{0,3}}?(?:n[oa]|a[o]?\s+n[íi]vel\s+d[oa])\s+({_LOCAIS})",
+    # relatório operatório: "Neoplasia Maligna Do Angulo Hepatico", "#Lesão neoformativa do cego"
+    rf"(?:neoplasia|les[ãa]o|tumor|massa)(?:\s+[A-Za-zÀ-ÿ]+){{0,2}}?\s+(?:d[oa]|n[oa])\s+(?:c[óo]lon\s+)?({_LOCAIS})",
 ]
 
 
@@ -263,8 +283,8 @@ def tipo_colectomia(texto: str) -> Candidato | None:
 
 @regista("colon.urgente")
 def urgente(texto: str) -> Candidato | None:
-    m = re.search(r"(?:tipo|car[áa]cter|regime)\s+(?:de\s+|da\s+)?(?:cirurgia|interven[çc][ãa]o|admiss[ãa]o)?\s*[:\-]?\s*"
-                  r"(programad|urg|emerg|elet|elect)\w*", texto, F)
+    m = re.search(r"(?:tipo|car[áa]cter|regime)\s+(?:de\s+|da\s+)?(?:cirurgia|interv(?:en[çc][ãa]o|\.)?|admiss[ãa]o)?\s*[:\-]?\s*"
+                  r"(?:prod\.?\s*)?(programad|urg|emerg|elet|elect)\w*", texto, F)
     if m:
         return Candidato(m[1].lower().startswith(("urg", "emerg")), excerto(texto, m.start(), m.end()))
     m = re.search(r"(?:cirurgia|interven[çc][ãa]o|laparotomia|colectomia)\s+(?:\w+\s+){0,2}?(?:de\s+)?(?:urg[êe]ncia|urgente|emergente|emerg[êe]ncia)|"
@@ -297,6 +317,11 @@ def anastomose_intracorporea(texto: str) -> Candidato | None:
     m = re.search(r"extra-?\s?corp[óo]re[ao]|exterioriza[çc][ãa]o\s+(?:\w+\s+){0,3}?(?:anastomose|ansas)", texto, F)
     if m:
         return Candidato(False, excerto(texto, m.start(), m.end()))
+    m = re.search(r"exterioriza[çc][ãa]o\s+d[oa]s?\s+(?:c[óo]lon|pe[çc]a|[íi]le\w*|ansas?|cego)|assistida\s+por\s+laparoscopia|"
+                  r"incis[ãa]o\s+de\s+assist[êe]ncia", texto, F)
+    if m and re.search(r"anastomose", texto, F):
+        return Candidato(False, excerto(texto, m.start(), m.end()),
+                         nota="inferido: laparoscopia assistida com exteriorização")
     return None
 
 
@@ -311,10 +336,16 @@ def asa(texto: str) -> Candidato | None:
 
 @regista("colon.ascite")
 def ascite(texto: str) -> Candidato | None:
-    return _presenca(texto, r"ascite|l[íi]quido\s+asc[íi]tico|l[íi]quido\s+(?:livre\s+)?peritoneal")
+    return _presenca(texto, r"ascite|l[íi]quido\s+asc[íi]tico|l[íi]quido\s+(?:livre\s+)?peritoneal|l[íi]quido\s+livre")
 
 
 @regista("colon.implantes_peritoneais")
 def implantes_peritoneais(texto: str) -> Candidato | None:
-    return _presenca(texto, r"carcinomatose(?:\s+peritoneal)?|implantes?\s+peritonea(?:is|l)|n[óo]dulos?\s+peritonea(?:is|l)|"
-                            r"met[áa]stases?\s+peritonea(?:is|l)|doen[çc]a\s+peritoneal|implantes?\s+(?:tumorais|neopl[áa]sicos)")
+    return _presenca(texto, r"carc\w{0,3}omatose(?:\s+peritoneal)?|implantes?\s+peritone\w*|n[óo]dulos?\s+peritone\w*|"
+                            r"met[áa]stases?\s+peritone\w*|doen[çc]a\s+peritoneal|implantes?\s+(?:tumorais|neopl[áa]sicos)")
+
+
+@regista("colon.oclusao")
+def oclusao(texto: str) -> Candidato | None:
+    return _presenca(texto, r"obstru[çc][ãa]o(?:\s+intestinal)?|oclus[ãa]o(?:\s+intestinal)?|suboclus[ãa]o|quadro\s+oclusivo|"
+                            r"neoplasia\s+(?:estenosante|oclusiva)")

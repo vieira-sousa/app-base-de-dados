@@ -1,0 +1,44 @@
+                                 Serviço de Anatomia Patológica
+
+                                                                             Exame histológico H00\00001
+    Nº Doente: 1111111            Nº Episódio: 00000001
+    Nome: DOENTE FICTICIO UM                                                                      Dt Nasc: 01-01-1950
+
+    Morada: RUA FICTICIA 1                                                                         Código Postal: 4000
+    Internamento de Cirurgia Geral - Homens                                            O Médico : Dr. Medico Ficticio
+                                                                                                      Data: 10-03-2024
+    RELATÓRIO ANATOMOPATOLÓGICO
+
+    MACROSCOPIA
+
+    Peça de hemicolectomia direita compreendendo segmento ileal com 6cm e
+    segmento cólico com 20cm. Após abertura identifica-se, no cego, neoplasia
+    ulcerada com 5,2x4x1,5cm, que dista 12cm do topo distal e 1,8cm da margem radial.
+    Do tecido adiposo pericólico foram identificados 31 gânglios
+    linfáticos, o maior com 1,1cm de maior dimensão.
+
+    MICROSCOPIA
+
+    No exame histológico da lesão observa-se neoplasia com as seguintes características:
+     - Classificação da OMS: Adenocarcinoma, SOE; pouco diferenciado;
+     - Dimensões: longitudinal: 5,2cm; transversal: 4cm; profunda: 1,5cm.
+     - "Budding" tumoral: score alto (>= 10);
+     - Invasão local: invasão da serosa (peritoneu visceral);
+     - Permeação linfática: observada;
+     - invasão venosa: observada (extramural);
+     - invasão peri-neural: não observada;
+     - depósitos tumorais: observados (3);
+     - peritoneu: sem implantes peritoneais.
+
+    Nos gânglios linfáticos observa-se:
+     - 4 / 31 gânglios linfáticos com metástase de adenocarcinoma.
+
+    No estudo imuno-histoquímico de expressão das proteínas do sistema MMR
+    observa-se perda de expressão de MLH1 e
+    PMS2, com expressão nuclear preservada de MSH2 e MSH6.
+
+    CONCLUSÃO:
+    . Adenocarcinoma SOE, pouco diferenciado, do cego
+         - pT4a N2a R0 (UICC/AJCC 8.ª edição)
+
+Validado electronicamente por: Dr. Medico Ficticio ( 20-03-2024 )                                  Página 1 de 1

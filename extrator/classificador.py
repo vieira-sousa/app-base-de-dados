@@ -16,14 +16,14 @@ TIPOS = ("anatomia_patologica", "analises", "cirurgia")
 # Pistas no nome do ficheiro / pasta (normalizado, sem acentos)
 PISTAS_NOME = {
     "anatomia_patologica": [r"\bap\b", r"anatomia", r"patologica", r"histolog", r"biopsia"],
-    "analises": [r"analise", r"\blab", r"patologia.?clinica", r"hemograma", r"bioquimica"],
-    "cirurgia": [r"cirurg", r"operatori", r"\bro\b", r"\bop\b", r"protocolo"],
+    "analises": [r"analise", r"\blab", r"patologia.?clinica", r"hemograma", r"bioquimica", r"\bea\b"],
+    "cirurgia": [r"cirurg", r"operatori", r"\bro\b", r"\bop\b", r"protocolo", r"relato"],
 }
 
 # Palavras-chave no texto com peso
 PALAVRAS = {
     "anatomia_patologica": {
-        "anatomia patologica": 5, "exame macroscopico": 4, "macroscopia": 3,
+        "anatomia patologica": 5, "relatorio anatomopatologico": 5, "exame macroscopico": 4, "macroscopia": 3,
         "microscopia": 3, "exame histologico": 3, "diagnostico histologico": 3,
         "peca operatoria": 3, "adenocarcinoma": 2, "carcinoma": 1, "ptnm": 4,
         "pt3": 2, "pt2": 2, "pt1": 2, "pt4": 2, "ganglios linfaticos": 2,
@@ -31,13 +31,13 @@ PALAVRAS = {
         "invasao perineural": 2, "invasao linfovascular": 2, "patologista": 2,
     },
     "analises": {
-        "patologia clinica": 5, "analises clinicas": 5, "valores de referencia": 4,
+        "patologia clinica": 5, "analises clinicas": 5, "relatorio de resultados": 4, "valores de referencia": 4,
         "intervalo de referencia": 4, "colheita": 2, "hemograma": 3, "bioquimica": 3,
         "hemoglobina": 1, "leucocitos": 1, "plaquetas": 1, "creatinina": 1,
         "g/dl": 1, "mg/dl": 1, "x10^9/l": 1, "u/l": 1, "validado por": 1,
     },
     "cirurgia": {
-        "relatorio operatorio": 5, "relatorio cirurgico": 5, "protocolo operatorio": 5,
+        "relatorio operatorio": 5, "relatorio cirurgico": 5, "relato cirurgico": 5, "data intervencao": 4, "protocolo operatorio": 5,
         "descricao cirurgica": 4, "descricao da cirurgia": 4, "cirurgiao": 3,
         "ajudante": 2, "anestesista": 2, "anestesia geral": 2, "diagnostico pre-operatorio": 3,
         "intervencao realizada": 3, "procedimento": 1, "laparoscop": 1, "laparotomia": 2,

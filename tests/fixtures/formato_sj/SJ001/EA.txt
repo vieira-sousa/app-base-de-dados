@@ -1,0 +1,25 @@
+                                                      Relatório de Resultados
+
+                                                               Nome:        DOENTE FICTICIO UM
+                                                               Data Nascimento:         1950-01-01         Idade:   74 Anos            Sexo:   M
+                                                               Processo:          1111111
+Data Colheita:          2024-03-04 09:10                                                                            Atendimento: 00000003
+Data emissão:           2026-01-01 10:00                       Serviço:           CONSULTA
+
+                                                          Resultados / Unidades         Valores de Referência         Resultados Anteriores
+   HEMATOLOGIA GERAL
+      HEMOGRAMA
+           Hemoglobina                                      11.2       g/dL                  13.0-17.0                12.0
+           MCHC                                             31.0       g/dL                  28.0-36.0
+           Leucócitos                                       8.10       x 10⁹/L               4.00-11.00               7.20
+           Neutrófilos                           70.4 %     5.70       x 10⁹/L               53.8-69.8
+           Linfócitos                            18.5 %     1.50       x 10⁹/L               22.6-36.6
+        PLAQUETAS
+          Plaquetas (contagem)                               388       x 10⁹/L               150-400
+   QUIMICA GERAL
+      ALBUMINA                                             35.0       g/L                   38.0-51.0
+      CREATININA                                           1.05       mg/dL                 0.67-1.17
+      PROTEÍNA C REACTIVA                                  14.2       mg/L                  <3.0
+   MARCADORES TUMORAIS
+      CEA                                                   9.8       ng/mL                 <5.0
+      CA 19-9                                                22       U/mL                  <37

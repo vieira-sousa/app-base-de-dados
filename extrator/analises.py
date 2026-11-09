@@ -34,8 +34,9 @@ def _padrao_alias(alias: str) -> re.Pattern:
         + nome +
         r"(?![A-Za-zÀ-ÿ0-9])"                           # o alias termina aqui (Hb ≠ HbA1c)
         r"([ \t]*(?:\([^)\n]{0,30}\))?[ \t.:_*#%\-]*)"  # grupo 1: "(Hb)", pontilhado, #, % ...
-        r"([<>≤≥]?)[ \t]*(\d+(?:[.,]\d+)?)"             # grupos 2-3: comparador e valor
-        r"[ \t]*([^\s\d][^\s]*)?",                       # grupo 4: unidade (opcional)
+        r"(?:(\d+(?:[.,]\d+)?)[ \t]*%[ \t]+(?=\d))?"      # grupo 2: "75.6 %" antes do valor absoluto
+        r"([<>≤≥]?)[ \t]*(\d+(?:[.,]\d+)?)"             # grupos 3-4: comparador e valor
+        r"[ \t]*((?:[xX][ \t]*10\S*)|(?:10[\^⁹¹³]\S*)|(?:[^\s\d]\S*))?",  # grupo 5: unidade
         re.IGNORECASE | re.MULTILINE,
     )
 
@@ -74,11 +75,11 @@ def extrair_valores(texto: str, parametros: list[dict], ficheiro: str = "") -> l
         achado = None
         for alias in p["aliases"]:
             for m in _padrao_alias(alias).finditer(texto):
-                unidade = (m[4] or "").strip()
+                unidade = re.sub(r"\s+", "", m[5] or "")
                 entre = m[1] or ""
                 if excluir and (norm_unidade(unidade) in excluir or any(e and e in norm_unidade(entre) for e in excluir)):
                     continue  # ex.: "Neutrófilos % 65" quando queremos o valor absoluto
-                valor = parse_numero(m[3])
+                valor = parse_numero(m[4])
                 if valor is None:
                     continue
                 achado = (m, valor, unidade)
@@ -93,7 +94,7 @@ def extrair_valores(texto: str, parametros: list[dict], ficheiro: str = "") -> l
         if intervalo and not (intervalo[0] <= convertido <= intervalo[1]):
             nota = "; ".join(x for x in (nota, f"fora do intervalo plausível {intervalo} — confirmar") if x)
         resultados.append(ValorAnalise(
-            parametro=p["nome"], valor=convertido, comparador={"≤": "<", "≥": ">"}.get(m[2], m[2]),
+            parametro=p["nome"], valor=convertido, comparador={"≤": "<", "≥": ">"}.get(m[3], m[3]),
             unidade=unidade, data=data_doc, ficheiro=ficheiro,
             evidencia=excerto(texto, m.start(), m.end(), 15), nota=nota,
         ))

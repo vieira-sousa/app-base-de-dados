@@ -83,6 +83,16 @@ def pm(texto: str) -> Candidato | None:
     return None
 
 
+def varios_tumores(texto: str) -> str | None:
+    """Deteta relatórios com mais do que um tumor (ex.: adenocarcinoma + tumor neuroendócrino)."""
+    pts = {(m[1].lower(), m[2].lower()) for m in RE_T.finditer(texto)}
+    if len(pts) > 1:
+        return "vários pTNM no relatório (" + ", ".join(sorted(f"{a}pT{b}" for a, b in pts)) + ")"
+    if re.search(r"(?:neoplasia|tumor|les[ãa]o)\s*\(B\)", texto):
+        return "relatório descreve mais do que uma neoplasia (A, B…)"
+    return None
+
+
 # ---------------------------------------------------------------- gânglios
 # "(3/22)", "3 / 22 gânglios", "3 de 22 gânglios", "22 gânglios ... 3 com metástase"
 RE_GANG_FRACAO = re.compile(r"(\d{1,3})\s*(?:/|de\s+|em\s+)\s*(\d{1,3})\b", F)
@@ -114,10 +124,17 @@ def _fracao_ganglios(texto: str):
     return None
 
 
+RE_ITC = re.compile(r"c[ée]lulas\s+tumorais\s+isoladas|\(i\+\)|\bITC\b", F)
+RE_GANG_N_NEG = re.compile(
+    r"g[aâ]nglios[^.\n]{0,40}?\(\s*n\s*=\s*(\d{1,3})\s*\)\s*(?:sem\s+(?:altera|met[aá]st|neoplasia|envolvimento|sinais)|livres|negativos)", F)
+
+
 @regista("ap.ganglios_examinados")
 def ganglios_examinados(texto: str) -> Candidato | None:
     if f := _fracao_ganglios(texto):
         return Candidato(f[1], excerto(texto, f[2].start(), f[2].end()))
+    if m := RE_GANG_N_NEG.search(texto):
+        return Candidato(int(m[1]), excerto(texto, m.start(), m.end()))
     m = RE_GANG_TOTAL.search(texto)
     if m:
         return Candidato(int(m[1]), excerto(texto, m.start(), m.end()))
@@ -127,7 +144,12 @@ def ganglios_examinados(texto: str) -> Candidato | None:
 @regista("ap.ganglios_positivos")
 def ganglios_positivos(texto: str) -> Candidato | None:
     if f := _fracao_ganglios(texto):
+        if f[0] > 0 and RE_ITC.search(texto[f[2].end(): f[2].end() + 80]):
+            return Candidato(0, excerto(texto, f[2].start(), f[2].end() + 60),
+                             nota=f"{f[0]} gânglio(s) só com células tumorais isoladas (pN0(i+)) — não contam como positivos")
         return Candidato(f[0], excerto(texto, f[2].start(), f[2].end()))
+    if m := RE_GANG_N_NEG.search(texto):
+        return Candidato(0, excerto(texto, m.start(), m.end()))
     total = RE_GANG_TOTAL.search(texto)
     if total:
         janela = texto[total.start(): total.end() + 150]
@@ -146,7 +168,8 @@ def ganglios_positivos(texto: str) -> Candidato | None:
 RE_R = re.compile(r"(?<![A-Za-z0-9])R\s?([012xX])(?![A-Za-z0-9])")
 RE_R_CONTEXTO = re.compile(r"ress?e[cç]|margem|margens|classifica[çc][ãa]o\s+r|res[ií]du", F)
 RE_MARGENS_LIVRES = re.compile(
-    r"margens?\b[^.\n]{0,70}?\b(?:livres?|sem\s+(?:neoplasia|tumor|envolvimento|atingimento))\b", F)
+    r"(?:margens?|topos?)\b[^.\n]{0,70}?\b(?:livres?|sem\s+(?:sinais\s+de\s+|evid[eê]ncia\s+de\s+)?"
+    r"(?:neoplasia|tumor|envolvimento|atingimento|les[ãa]o))\b", F)
 RE_MARGEM_ENVOLVIDA = re.compile(
     r"margem\s+[^.\n]{0,40}?(?<!n[ãa]o\s)(?<!n[ãa]o\s\s)\b(?:envolvida|atingida|invadida|com\s+(?:neoplasia|tumor))", F)
 
@@ -163,7 +186,7 @@ def margem_r(texto: str) -> Candidato | None:
     if m := RE_MARGEM_ENVOLVIDA.search(texto):
         return Candidato("R1", excerto(texto, m.start(), m.end()), nota="inferido de margem envolvida")
     if m := RE_MARGENS_LIVRES.search(texto):
-        return Candidato("R0", excerto(texto, m.start(), m.end()), nota="inferido de 'margens livres'")
+        return Candidato("R0", excerto(texto, m.start(), m.end()), nota="inferido de margens/topos livres")
     return None
 
 
@@ -185,8 +208,10 @@ def margem_circunferencial_mm(texto: str) -> Candidato | None:
 
 
 # ------------------------------------------------------------------ tumor
+_PAR = r"(?:\([^)\n]{0,20}\))?\s*"   # "4,0(longitudinal)x3,9(transversal)x1,7(profundidade)cm"
 RE_DIM = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*(?:x\s*(\d+(?:[.,]\d+)?)\s*)?(?:x\s*(\d+(?:[.,]\d+)?)\s*)?(cm|mm)\b", F)
+    r"(\d+(?:[.,]\d+)?)\s*" + _PAR + r"(?:x\s*(\d+(?:[.,]\d+)?)\s*" + _PAR + r")?(?:x\s*(\d+(?:[.,]\d+)?)\s*" + _PAR + r")?(cm|mm)\b", F)
+RE_DIM_SINOPTICO = re.compile(r"dimens[õo]es\s*:([^\n]{0,140})", F)
 RE_CTX_TUMOR = re.compile(r"tumor|tumefa[çc][ãa]o|neoplasia|les[ãa]o|massa|ulcera[çc][ãa]o|maior\s+(?:dimens|eixo|di[aâ]metro)", F)
 
 
@@ -200,9 +225,15 @@ def tamanho_tumor_mm(texto: str) -> Candidato | None:
 
 @regista("ap.tamanho_tumor_cm")
 def tamanho_tumor_cm(texto: str) -> Candidato | None:
-    # preferir frase "maior dimensão/eixo"
-    m = re.search(r"maior\s+(?:dimens[ãa]o|eixo|di[aâ]metro)[^0-9\n]{0,30}?(\d+(?:[.,]\d+)?)\s*(cm|mm)", texto, F)
-    if m:
+    # 1) relatório sinóptico: "Dimensões: longitudinal: 7,6cm; transversal: 7cm; profunda: 5cm"
+    if m := RE_DIM_SINOPTICO.search(texto):
+        medidas = [(parse_numero(n), u.lower()) for n, u in re.findall(r"(\d+(?:[.,]\d+)?)\s*(cm|mm)\b", m[1], F)]
+        cms = [v / 10 if u == "mm" else v for v, u in medidas if v is not None]
+        if cms:
+            return Candidato(round(max(cms), 1), excerto(texto, m.start(), m.end(), 10))
+    # 2) "maior dimensão de 3,2 cm" (não "maior dimensão a 1cm do topo")
+    m = re.search(r"maior\s+(?:dimens[ãa]o|eixo|di[aâ]metro)\s*(?:de|:|=|com|mede)?\s*(\d+(?:[.,]\d+)?)\s*(cm|mm)", texto, F)
+    if m and not re.search(r"g[aâ]ngli|o\s+maior\s+com", texto[max(0, m.start() - 60): m.start()], F):
         v = parse_numero(m[1]) / (10 if m[2].lower() == "mm" else 1)
         return Candidato(round(v, 1), excerto(texto, m.start(), m.end()))
     for m in RE_DIM.finditer(texto):
@@ -234,8 +265,19 @@ GRAU_MAPA = [
 
 @regista("ap.grau_diferenciacao")
 def grau_diferenciacao(texto: str) -> Candidato | None:
+    # 1) grau na mesma frase do (adeno)carcinoma — evita o grau de outro tumor (ex. neuroendócrino)
+    for m in re.finditer(r"(?:adeno)?carcinoma", texto, F):
+        frase = re.split(r"\.\s|\n\s*\n|\n\s*[.\-•]", texto[m.end(): m.end() + 100])[0]
+        for padrao, valor in GRAU_MAPA:
+            g = re.search(padrao, frase, F)
+            if g and not (valor in ("baixo_grau", "alto_grau") and re.search(r"displasia", frase[: g.start()], F)):
+                inicio = m.end() + g.start()
+                return Candidato(valor or f"G{g[1]}", excerto(texto, m.start(), inicio + len(g[0])))
+    # 2) qualquer menção (excluindo graus de tumores neuroendócrinos)
     for padrao, valor in GRAU_MAPA:
         for m in re.finditer(padrao, texto, F):
+            if re.search(r"neuro-?end[óo]crin|carcinoide", texto[max(0, m.start() - 80): m.start()], F):
+                continue
             if valor is None:
                 # G1–G4 só se houver contexto de grau (evita "G2" de outras coisas)
                 janela = texto[max(0, m.start() - 50): m.end() + 10]
@@ -263,7 +305,7 @@ def _invasao(texto: str, termo: str, codigo: str | None) -> Candidato | None:
         if m:
             return Candidato(m[1] != "0", excerto(texto, m.start(), m.end()))
     # 2) "sem invasão X" / "ausência de invasão X"
-    m = re.search(rf"(?:sem|aus[eê]ncia\s+de|n[ãa]o\s+(?:se\s+)?(?:identifica|observa|evidencia)[a-z]*)\s+(?:\w+\s+){{0,3}}{termo}", texto, F)
+    m = re.search(rf"(?:sem|aus[eê]ncia\s+de|n[ãa]o\s+(?:se\s+)?(?:identifica|observa|evidencia)[a-z]*)\s+(?:[\w-]+,?\s+){{0,3}}{termo}", texto, F)
     if m:
         return Candidato(False, excerto(texto, m.start(), m.end()))
     # 3) "invasão X: presente/ausente" (até 40 caracteres depois)
@@ -284,17 +326,19 @@ def _invasao(texto: str, termo: str, codigo: str | None) -> Candidato | None:
 
 @regista("ap.invasao_linfovascular")
 def invasao_linfovascular(texto: str) -> Candidato | None:
-    return _invasao(texto, r"invas[ãa]o\s+(?:linfo-?vascular|linf[aá]tica|vascular\s+linf[aá]tica|angiolinf[aá]tica)|\bLVI\b", "L")
+    return _invasao(texto, r"invas[ãa]o\s+(?:linfo-?vascular|linf[aá]tica|vascular\s+linf[aá]tica|angiolinf[aá]tica)|"
+                           r"permea[çc][ãa]o\s+(?:linf[aá]tica|linfo-?vascular|vascular\s+linf[aá]tica)|\bLVI\b", "L")
 
 
 @regista("ap.invasao_venosa")
 def invasao_venosa(texto: str) -> Candidato | None:
-    return _invasao(texto, r"invas[ãa]o\s+(?:venosa|vascular\s+venosa)(?:\s+(?:intra|extra)mural)?", "V")
+    return _invasao(texto, r"(?:invas[ãa]o|permea[çc][ãa]o)\s+(?:venosa|vascular\s+(?:linf[aá]tica\s+(?:ou|e)\s+)?venosa)"
+                           r"(?:\s+(?:intra|extra)mural)?", "V")
 
 
 @regista("ap.invasao_perineural")
 def invasao_perineural(texto: str) -> Candidato | None:
-    return _invasao(texto, r"invas[ãa]o\s+peri-?neural|infiltra[çc][ãa]o\s+peri-?neural|\bPNI\b", "Pn")
+    return _invasao(texto, r"(?:invas[ãa]o|infiltra[çc][ãa]o|permea[çc][ãa]o)\s+peri-?neural|\bPNI\b", "Pn")
 
 
 # ------------------------------------------------- regressão pós-neoadjuvância

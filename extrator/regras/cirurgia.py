@@ -25,14 +25,17 @@ def data_cirurgia(texto: str) -> Candidato | None:
 # ---------------------------------------------------------------- abordagem
 RE_CONVERSAO_NEG = re.compile(r"(?:sem|n[ãa]o\s+(?:houve|foi\s+necess[aá]ri[ao]))\s+(?:necessidade\s+de\s+)?convers[ãa]o", F)
 RE_CONVERSAO = re.compile(
-    r"convers[ãa]o\s+(?:para|a)\s+(?:cirurgia\s+)?(?:aberta|laparotomia|via\s+aberta)|"
+    r"convers[ãa]o\s+(?:para|a)\s+(?:cirurgia\s+|uma\s+)?(?:aberta|lap\w{0,4}tomia|via\s+aberta)|"
+    r"ap[óo]s\s+convers[ãa]o|convers[ãa]o\s+de\s+laparoscopia|(?:opt|decid)\w*(?:-se)?\s+(?:pela|por)\s+convers[ãa]o|"
     r"convertid[ao]\s+(?:para|a|em)\s+(?:cirurgia\s+)?(?:aberta|laparotomia)|"
     r"(?:optou-se|decidiu-se)\s+(?:pela|por)\s+convers[ãa]o|procedeu-se\s+[àa]\s+convers[ãa]o",
     F,
 )
 RE_ROBOTICA = re.compile(r"rob[óo]tic|da\s?vinci|assistid[ao]\s+por\s+robot", F)
-RE_LAPAROSCOPICA = re.compile(r"laparosc[óo]pic|laparoscopia|pneumoperit|trocar|via\s+minimamente\s+invasiva", F)
-RE_ABERTA = re.compile(r"laparotomia|incis[ãa]o\s+(?:mediana|subcostal|de\s+kocher|de\s+chevron|transversa)|via\s+aberta|cirurgia\s+aberta", F)
+RE_LAPAROSCOPICA = re.compile(r"laparosc[óo]pic|laparoscopia|pneumoperit|trocar|via\s+minimamente\s+invasiva|"
+                              r"abordagem\s+percut[âa]nea\s+endosc[óo]pica", F)
+RE_ABERTA = re.compile(r"laparotomia|incis[ãa]o\s+(?:mediana|subcostal|de\s+kocher|de\s+chevron|transversa)|via\s+aberta|"
+                       r"cirurgia\s+aberta|abordagem\s+aberta", F)
 # "laparotomia" usada como incisão de extração (mini-laparotomia) não torna a cirurgia aberta
 RE_MINI_LAPAROTOMIA = re.compile(r"mini-?\s?laparotomia|incis[ãa]o\s+de\s+(?:extra[çc][ãa]o|pfannenstiel)|extra[çc][ãa]o\s+da\s+pe[çc]a", F)
 
@@ -83,6 +86,7 @@ RE_PERDAS = re.compile(
     F,
 )
 RE_PERDAS_MINIMAS = re.compile(
+    r"sem\s+perdas?\s+(?:hem[aá]ticas?|sangu[ií]neas?)\s+(?:significativas|relevantes|valoriz[aá]veis|de\s+relevo)|"
     r"perdas?\s+(?:hem[aá]ticas?|sangu[ií]neas?)(?:\s+estimadas?)?\s*[:.\-]?\s*(?:foram\s+)?(?:m[ií]nimas|desprez[ií]veis|insignificantes|n[ãa]o\s+significativas|sem\s+perdas)",
     F,
 )

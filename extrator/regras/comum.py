@@ -7,7 +7,8 @@ from ..utils import DATA_PADRAO, excerto, parse_data
 from . import Candidato, regista
 
 RE_PROCESSO = re.compile(
-    r"(?:n\.?\s*º?\s*(?:de\s+)?processo|processo(?:\s+cl[ií]nico)?|n\.?\s*º?\s*proc\.?|n\.?\s*º?\s*sequencial|NSC|NUP)"
+    r"(?:n\.?\s*º?\s*(?:de\s+)?processo|processo(?:\s+cl[ií]nico)?|n\.?\s*º?\s*proc\.?|n\.?\s*º?\s*sequencial|NSC|NUP|"
+    r"n\.?\s*º?\s*(?:de\s+)?doente)"
     r"\s*[:.\-]?\s*(\d{4,12})",
     re.IGNORECASE,
 )
@@ -16,6 +17,9 @@ RE_PROCESSO = re.compile(
 @regista("comum.processo")
 def processo(texto: str) -> Candidato | None:
     m = RE_PROCESSO.search(texto)
+    if not m:
+        # SClínico: código de barras "*1234567*" no canto superior direito (o 1.º do documento)
+        m = re.match(r"\s*\*(\d{5,10})\*", texto) or re.search(r"\*(\d{5,10})\*", texto[:400])
     if not m:
         return None
     return Candidato(m[1], excerto(texto, m.start(), m.end(), 20))
