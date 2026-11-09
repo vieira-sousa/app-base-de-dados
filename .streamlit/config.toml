@@ -1,0 +1,12 @@
+# Só acessível neste computador; sem envio de estatísticas de utilização.
+[server]
+address = "localhost"
+headless = true
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[theme]
+base = "light"

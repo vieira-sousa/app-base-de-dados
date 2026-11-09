@@ -1,0 +1,15 @@
+# Dados clínicos NUNCA vão para o git
+entrada/*
+!entrada/.gitkeep
+resultados/*
+!resultados/.gitkeep
+*.pdf
+*.xlsx
+*.xls
+*.csv
+!tests/fixtures/*
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

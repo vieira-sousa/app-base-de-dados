@@ -1,0 +1,17 @@
+RELATÓRIO OPERATÓRIO
+Serviço de Cirurgia Geral
+Processo: 1234567
+Data da cirurgia: 15/03/2025
+Cirurgião: Dr. X    Ajudante: Dr. Y    Anestesista: Dr. Z
+Diagnóstico pré-operatório: Adenocarcinoma do reto médio cT3N1M0, pós-QRT neoadjuvante.
+Intervenção realizada: Resseção anterior do reto por via laparoscópica com excisão total do mesorreto.
+
+Descrição:
+Doente em decúbito dorsal, anestesia geral. Pneumoperitoneu com agulha de Veress e colocação de 5 trocares.
+Laqueação alta da artéria mesentérica inferior. Mobilização do ângulo esplénico.
+Excisão total do mesorreto. Secção do reto com agrafador linear endoscópico.
+Extração da peça por mini-laparotomia de Pfannenstiel.
+Anastomose colorretal topo-a-topo mecânica com agrafador circular 29 mm.
+Teste de fuga negativo. Ileostomia em ansa de proteção na fossa ilíaca direita.
+Sem necessidade de conversão. Perdas hemáticas estimadas de 150 mL.
+Hora de início: 09:10   Hora de fim: 13:25

@@ -1,0 +1,5 @@
+SERVIÇO DE PATOLOGIA CLÍNICA
+Processo: 1234567
+Data de colheita: 19/03/2025
+Hemoglobina                       10,6         g/dL
+Proteína C reativa                9,1          mg/dL

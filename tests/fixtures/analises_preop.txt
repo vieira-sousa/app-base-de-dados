@@ -1,0 +1,19 @@
+SERVIÇO DE PATOLOGIA CLÍNICA
+Nº Processo: 1234567
+Data de colheita: 10/03/2025
+
+HEMOGRAMA                         Resultado    Unidades     Valores de referência
+Hemoglobina                       11,8         g/dL         12,0 - 15,5
+Hemoglobina corpuscular média     28,1         pg           27,0 - 33,0
+Leucócitos                        6,40         x10^9/L      4,0 - 11,0
+Plaquetas                         245          x10^9/L      150 - 400
+
+BIOQUÍMICA
+Creatinina                        0,82         mg/dL        0,51 - 0,95
+Albumina                          3,9          g/dL         3,5 - 5,2
+Proteína C reativa                0,4          mg/dL        < 0,5
+Hemoglobina A1c                   5,6          %
+
+MARCADORES TUMORAIS
+CEA                               7,2          ng/mL        < 5,0
+CA 19-9                           < 2,0        U/mL         < 37

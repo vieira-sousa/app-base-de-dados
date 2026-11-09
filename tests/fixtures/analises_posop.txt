@@ -1,0 +1,6 @@
+SERVIÇO DE PATOLOGIA CLÍNICA
+Processo: 1234567
+Data de colheita: 17/03/2025
+Hemoglobina                       10,2         g/dL
+Leucócitos                        12,8         x10^9/L
+Proteína C reativa                18,6         mg/dL

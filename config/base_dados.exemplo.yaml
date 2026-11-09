@@ -1,0 +1,56 @@
+# =============================================================================
+#  LIGAÇÃO À SUA BASE DE DADOS (Excel .xlsx / .xlsm)
+#  Copiar para config/base_dados.yaml e ajustar aos nomes das SUAS colunas.
+# =============================================================================
+ficheiro: ../dados/base_dados.xlsx   # caminho para o Excel (absoluto, ou relativo a esta pasta config/)
+folha: Doentes                       # nome da folha (omitir = primeira folha)
+linha_cabecalho: 1                   # linha onde estão os nomes das colunas
+coluna_id: Processo                  # coluna com o nº de processo (= nome da pasta do doente)
+
+sobrescrever: false                  # false: nunca altera células já preenchidas (regista conflito)
+criar_linhas_novas: true             # doente não existe na BD -> cria linha nova
+
+# campo extraído  ->  nome EXATO da coluna na BD (maiúsculas/acentos ignorados)
+mapeamento:
+  data_cirurgia: Data cirurgia
+  procedimento: Procedimento
+  abordagem: Abordagem
+  conversao: Conversão
+  perdas_hematicas_ml: Perdas hemáticas (mL)
+  duracao_cirurgia_min: Duração (min)
+  anastomose_tecnica: Anastomose
+  estoma: Estoma
+  tipo_histologico: Histologia
+  grau_diferenciacao: Grau
+  ptnm_prefixo: Prefixo TNM
+  pT: pT
+  pN: pN
+  pM: pM
+  ganglios_examinados: Gânglios isolados
+  ganglios_positivos: Gânglios positivos
+  margem_r: Margem R
+  margem_circunferencial_mm: CRM (mm)
+  tamanho_tumor_cm: Tamanho (cm)
+  invasao_linfovascular: ILV
+  invasao_venosa: Invasão venosa
+  invasao_perineural: IPN
+  grau_regressao: TRG
+  estado_mmr: MMR
+  cea_preop: CEA pré-op
+  ca19_9_preop: CA19-9 pré-op
+  hemoglobina_preop: Hb pré-op
+  albumina_preop: Albumina pré-op
+  pcr_max_pos_op: PCR máx pós-op
+
+# Se a BD usa códigos numéricos, converter aqui (valor extraído -> código)
+recodificacao:
+  _booleano: {true: 1, false: 0}     # todos os campos sim/não
+  abordagem:
+    laparoscopica: 1
+    robotica: 2
+    aberta: 3
+    convertida: 4
+  margem_r:
+    R0: 0
+    R1: 1
+    R2: 2
