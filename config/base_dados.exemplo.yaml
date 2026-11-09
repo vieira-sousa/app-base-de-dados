@@ -1,56 +1,52 @@
 # =============================================================================
-#  LIGAÇÃO À SUA BASE DE DADOS (Excel .xlsx / .xlsm)
-#  Copiar para config/base_dados.yaml e ajustar aos nomes das SUAS colunas.
+#  LIGAÇÃO À BASE DE DADOS — Hemicolectomia direita (folha DOENTES)
+#  Copiar para config/base_dados.yaml (o instalar.bat faz isto) e ajustar 'ficheiro'.
 # =============================================================================
-ficheiro: ../dados/base_dados.xlsx   # caminho para o Excel (absoluto, ou relativo a esta pasta config/)
-folha: Doentes                       # nome da folha (omitir = primeira folha)
-linha_cabecalho: 1                   # linha onde estão os nomes das colunas
-coluna_id: Processo                  # coluna com o nº de processo (= nome da pasta do doente)
+ficheiro: ../dados/Base_Hemicolectomia.xlsx   # pôr o Excel na pasta dados/ (fora do git), ou caminho absoluto
+folha: DOENTES
+linha_cabecalho: 1
+coluna_id: patient_id            # = nome da pasta de cada doente em entrada/
 
-sobrescrever: false                  # false: nunca altera células já preenchidas (regista conflito)
-criar_linhas_novas: true             # doente não existe na BD -> cria linha nova
+sobrescrever: false              # nunca altera células já preenchidas (regista conflito)
+criar_linhas_novas: true         # doente novo -> primeira linha livre (as linhas já têm N e fórmulas)
 
-# campo extraído  ->  nome EXATO da coluna na BD (maiúsculas/acentos ignorados)
-mapeamento:
-  data_cirurgia: Data cirurgia
-  procedimento: Procedimento
-  abordagem: Abordagem
-  conversao: Conversão
-  perdas_hematicas_ml: Perdas hemáticas (mL)
-  duracao_cirurgia_min: Duração (min)
-  anastomose_tecnica: Anastomose
-  estoma: Estoma
-  tipo_histologico: Histologia
-  grau_diferenciacao: Grau
-  ptnm_prefixo: Prefixo TNM
-  pT: pT
-  pN: pN
-  pM: pM
-  ganglios_examinados: Gânglios isolados
-  ganglios_positivos: Gânglios positivos
-  margem_r: Margem R
-  margem_circunferencial_mm: CRM (mm)
-  tamanho_tumor_cm: Tamanho (cm)
-  invasao_linfovascular: ILV
-  invasao_venosa: Invasão venosa
-  invasao_perineural: IPN
-  grau_regressao: TRG
-  estado_mmr: MMR
-  cea_preop: CEA pré-op
-  ca19_9_preop: CA19-9 pré-op
-  hemoglobina_preop: Hb pré-op
-  albumina_preop: Albumina pré-op
-  pcr_max_pos_op: PCR máx pós-op
+# auto: cada campo de campos.yaml vai para a coluna com o mesmo nome.
+# Aceita cabeçalhos anotados: "operative_time_min" -> "operative_time_min_Difícil".
+mapeamento: auto
 
-# Se a BD usa códigos numéricos, converter aqui (valor extraído -> código)
+# Códigos do DICIONARIO. Valor sem código aqui -> NÃO é escrito (fica no registo para preencher à mão).
 recodificacao:
-  _booleano: {true: 1, false: 0}     # todos os campos sim/não
-  abordagem:
-    laparoscopica: 1
-    robotica: 2
-    aberta: 3
-    convertida: 4
-  margem_r:
-    R0: 0
-    R1: 1
-    R2: 2
+  _booleano: {true: 1, false: 0}
+  _geral: {nao_aplicavel: 8}
+
+  operation_type: {hemicolectomia_direita: 1, direita_alargada: 2, outro: 3}
+  surgical_intent: {curativa: 1, paliativa: 2}
+  approach: {aberta: 1, laparoscopica: 2, robotica: 3}
+  asa: {I: 1, II: 2, III: 3, IV: 4}
+  surgical_r_status: {R0: 0, R1: 1, R2: 2}
+
+  tumor_location: {cego: 1, ascendente: 2, angulo_hepatico: 3, transverso_proximal: 4}
+  histology: {adenocarcinoma_nos: 1, mucinoso: 2, anel_sinete: 3, medular: 4, outro: 5}
+  grade: {G1: 1, G2: 2, G3: 3, G4: 4}          # baixo_grau / alto_grau: sem código -> decidir à mão
+  tnm_prefix: {p: 1, yp: 2}
+  t_stage: {T1: 1, T2: 2, T3: 3, T4a: 4, T4b: 5}  # Tis, T0, T4 sem a/b, TX: à mão
+  n_stage: {N0: 0, N1a: 1, N1b: 2, N1c: 3, N2a: 4, N2b: 5}   # N1/N2 sem subcategoria: à mão
+  tumor_budding: {baixo: 1, intermedio: 2, alto: 3}
+  pathological_r_status: {R0: 0, R1: 1, R2: 2}
+  tumor_regression_grade:
+    nao_aplicavel: 0               # neste campo "não aplicável" é 0, não 8
+    resposta_completa: 1
+    resposta_marcada: 2
+    resposta_parcial: 3
+    resposta_minima: 4
+  pathological_stage: {I: 1, II: 2, III: 3, IV: 4}
+
+  mmr_status: {pMMR: 0, dMMR: 1}
+  mlh1: {retido: 0, perdido: 1}
+  pms2: {retido: 0, perdido: 1}
+  msh2: {retido: 0, perdido: 1}
+  msh6: {retido: 0, perdido: 1}
+  msi_status: {MSS/MSI-L: 0, MSI-H: 1}
+  braf: {WT: 0, mutado: 1}
+  kras: {WT: 0, mutado: 1}
+  nras: {WT: 0, mutado: 1}

@@ -39,14 +39,14 @@ def txt_para_pdf(origem: Path, destino: Path):
 def pasta_doente(tmp_path):
     d = tmp_path / "entrada" / "1234567"
     d.mkdir(parents=True)
-    for f in FIX.glob("*.txt"):
+    for f in FIX.glob("*.txt"):  # relatórios de reto (configuração genérica)
         txt_para_pdf(f, d / (f.stem + ".pdf"))
     return d
 
 
 @pytest.fixture
 def cfg():
-    return carregar_campos()
+    return carregar_campos(FIX / "campos_generico.yaml")
 
 
 def test_extracao_so_regex(pasta_doente, cfg):
@@ -57,7 +57,7 @@ def test_extracao_so_regex(pasta_doente, cfg):
     assert v["perdas_hematicas_ml"] == 150
     assert v["duracao_cirurgia_min"] == 255
     assert v["estoma"] == "ileostomia"
-    assert v["pT"] == "T3" and v["pN"] == "N1b" and v["ptnm_prefixo"] == "y"
+    assert v["pT"] == "T3" and v["pN"] == "N1b" and v["ptnm_prefixo"] == "yp"
     assert v["ganglios_examinados"] == 18 and v["ganglios_positivos"] == 2
     assert v["margem_r"] == "R0"
     assert v["invasao_linfovascular"] is True
@@ -67,15 +67,31 @@ def test_extracao_so_regex(pasta_doente, cfg):
     assert v["hemoglobina_preop"] == 11.8            # não apanha HGM nem HbA1c
     assert v["pcr_max_pos_op"] == 18.6               # máximo pós-op (dia 2), não o pré-op
     assert r.campos["ca19_9_preop"].estado == REVER  # "< 2,0" deve ir para revisão
-    assert not any("≠ pasta" in a for a in r.avisos)
+    assert not any("⚠" in a for a in r.avisos)
 
 
-def test_aviso_processo_diferente(tmp_path, cfg):
-    d = tmp_path / "9999999"
+def test_aviso_processos_diferentes_na_pasta(tmp_path, cfg):
+    d = tmp_path / "HCD001"
     d.mkdir()
     shutil.copy(FIX / "ap_reto.txt", d / "AP.txt")
+    (d / "cirurgia.txt").write_text("RELATÓRIO OPERATÓRIO\nProcesso: 5555555\nCirurgião: X", encoding="utf-8")
     r = processar_doente(d, cfg, llm=None)
-    assert any("≠ pasta" in a for a in r.avisos)
+    assert any("DIFERENTES" in a for a in r.avisos)
+
+
+def test_tabela_correspondencia(tmp_path, cfg):
+    from extrator.motor import carregar_correspondencia
+
+    d = tmp_path / "HCD001"
+    d.mkdir()
+    shutil.copy(FIX / "ap_reto.txt", d / "AP.txt")           # processo 1234567
+    tab = tmp_path / "correspondencia.csv"
+    tab.write_text("patient_id;processo\nHCD001;1234567\nHCD002;7654321\n", encoding="utf-8")
+    corr = carregar_correspondencia(tab)
+    assert not any("⚠" in a for a in processar_doente(d, cfg, correspondencia=corr).avisos)
+    tab.write_text("patient_id;processo\nHCD001;7654321\n", encoding="utf-8")
+    corr = carregar_correspondencia(tab)
+    assert any("não corresponde" in a for a in processar_doente(d, cfg, correspondencia=corr).avisos)
 
 
 # ------------------------------------------------------------ LLM simulado
@@ -181,7 +197,7 @@ def test_revisao_e_preenchimento(pasta_doente, cfg, tmp_path):
     res = preencher_base_dados(ler_revisao(rev), cfg, cfg_bd, pasta_registo=tmp_path)
     assert Path(res["backup"]).exists()
     assert res["contagem"]["conflitos"] == 1          # perdas 200 vs 150 não é sobrescrito
-    assert "Coluna inexistente" in res["colunas_em_falta"]
+    assert "margem_r" in res["campos_sem_coluna"]
 
     s = load_workbook(bd)["Doentes"]
     linha = {s.cell(1, c).value: s.cell(3, c).value for c in range(1, s.max_column + 1)}

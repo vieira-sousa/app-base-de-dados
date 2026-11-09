@@ -1,0 +1,26 @@
+SERVIÇO DE ANATOMIA PATOLÓGICA
+Nº Processo: 7654321              Data do relatório: 28/05/2025
+Doente: FICTÍCIO
+
+Produto: Peça de hemicolectomia direita.
+
+EXAME MACROSCÓPICO
+Peça de hemicolectomia direita incluindo íleo terminal (8 cm), cego, apêndice e cólon ascendente (18 cm).
+No cólon ascendente, a 6 cm da válvula ileocecal, observa-se lesão ulcerada e infiltrativa com 4,2 x 3,5 x 1,5 cm.
+A lesão dista 9 cm da margem distal. Isolaram-se 24 gânglios linfáticos.
+
+EXAME MICROSCÓPICO
+Adenocarcinoma moderadamente diferenciado (G2), com componente mucinoso (20%).
+Não se observam células em anel de sinete.
+O tumor invade através da muscular própria até ao tecido adiposo pericólico, sem atingir a serosa.
+Invasão linfovascular: presente (L1). Invasão venosa: ausente (V0). Invasão perineural: presente (Pn1).
+Depósitos tumorais: presentes (2).
+Budding tumoral: baixo (Bd1).
+Margens proximal, distal e radial livres.
+Metástases em 3 de 24 gânglios linfáticos.
+
+IMUNOHISTOQUÍMICA
+Expressão nuclear mantida de MLH1, PMS2, MSH2 e MSH6 (pMMR).
+
+DIAGNÓSTICO
+Adenocarcinoma do cólon ascendente, pT3 pN1b (3/24), L1 V0 Pn1, R0 (TNM AJCC 8ª edição).

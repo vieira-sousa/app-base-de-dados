@@ -30,4 +30,4 @@ def regista(nome: str):
 
 
 # importa os módulos para popular o registo
-from . import anatomia_patologica, cirurgia, comum  # noqa: E402,F401
+from . import anatomia_patologica, cirurgia, colon, comum  # noqa: E402,F401

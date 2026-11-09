@@ -44,7 +44,7 @@ def conversao(texto: str) -> Candidato | None:
     if m := RE_CONVERSAO.search(texto):
         return Candidato(True, excerto(texto, m.start(), m.end()))
     if RE_LAPAROSCOPICA.search(texto) or RE_ROBOTICA.search(texto):
-        return Candidato(False, "", nota="minimamente invasiva sem menção a conversão")
+        return Candidato(False, "(via minimamente invasiva, sem menção a conversão)")
     return None
 
 
@@ -58,6 +58,19 @@ def abordagem(texto: str) -> Candidato | None:
     if m := RE_LAPAROSCOPICA.search(texto):
         return Candidato("laparoscopica", excerto(texto, m.start(), m.end()))
     if m := RE_ABERTA.search(texto):
+        if not RE_MINI_LAPAROTOMIA.search(texto[max(0, m.start() - 20): m.end() + 20]):
+            return Candidato("aberta", excerto(texto, m.start(), m.end()))
+    return None
+
+
+@regista("cirurgia.abordagem_inicial")
+def abordagem_inicial(texto: str) -> Candidato | None:
+    """Via de abordagem inicial (intenção de tratar). A conversão é registada à parte."""
+    if m := RE_ROBOTICA.search(texto):
+        return Candidato("robotica", excerto(texto, m.start(), m.end()))
+    if m := RE_LAPAROSCOPICA.search(texto):
+        return Candidato("laparoscopica", excerto(texto, m.start(), m.end()))
+    for m in RE_ABERTA.finditer(texto):
         if not RE_MINI_LAPAROTOMIA.search(texto[max(0, m.start() - 20): m.end() + 20]):
             return Candidato("aberta", excerto(texto, m.start(), m.end()))
     return None

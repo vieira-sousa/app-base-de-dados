@@ -30,12 +30,12 @@ def test_parse_numero(txt, esperado):
 
 # ------------------------------------------------------------------- pTNM
 @pytest.mark.parametrize("texto,t,n,m,pref", [
-    ("Estadiamento: pT3N1aM0", "T3", "N1a", None, None),
-    ("ypT2 ypN0 (0/14)", "T2", "N0", None, "y"),
-    ("pT4b pN2b pM1a", "T4b", "N2b", "M1a", None),
-    ("TNM: pTis pN0", "Tis", "N0", None, None),
-    ("estádio pT1 N0 (0/12)", "T1", "N0", None, None),
-    ("rpT3 pN1", "T3", "N1", None, "r"),
+    ("Estadiamento: pT3N1aM0", "T3", "N1a", None, "p"),
+    ("ypT2 ypN0 (0/14)", "T2", "N0", None, "yp"),
+    ("pT4b pN2b pM1a", "T4b", "N2b", "M1a", "p"),
+    ("TNM: pTis pN0", "Tis", "N0", None, "p"),
+    ("estádio pT1 N0 (0/12)", "T1", "N0", None, "p"),
+    ("rpT3 pN1", "T3", "N1", None, "rp"),
 ])
 def test_ptnm(texto, t, n, m, pref):
     assert ext("ap.pt", texto) == t

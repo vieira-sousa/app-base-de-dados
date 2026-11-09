@@ -1,0 +1,16 @@
+RELATÓRIO OPERATÓRIO — Serviço de Cirurgia Geral
+Processo: 7654321
+Data da cirurgia: 12/05/2025          Tipo de cirurgia: Programada
+ASA: II
+Diagnóstico pré-operatório: Adenocarcinoma do cólon ascendente cT3N1M0.
+Intervenção realizada: Hemicolectomia direita laparoscópica com anastomose ileocólica intracorpórea.
+
+Descrição:
+Pneumoperitoneu com agulha de Veress, colocação de 4 trocares.
+Inventário da cavidade: sem ascite, sem carcinomatose peritoneal, fígado sem lesões aparentes.
+Abordagem medial-lateral com laqueação dos vasos ileocólicos na origem. Mobilização do ângulo hepático.
+Anastomose ileocólica latero-lateral isoperistáltica intracorpórea mecânica com agrafador linear 60 mm,
+encerramento do orifício com sutura contínua.
+Extração da peça por incisão de Pfannenstiel protegida.
+Sem necessidade de conversão. Perdas hemáticas estimadas de 50 mL.
+Duração: 2h45

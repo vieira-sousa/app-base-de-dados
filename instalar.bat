@@ -27,7 +27,8 @@ if errorlevel 1 ( echo [ERRO] pip falhou & pause & exit /b 1 )
 
 if not exist config\base_dados.yaml (
     copy config\base_dados.exemplo.yaml config\base_dados.yaml >nul
-    echo == Criado config\base_dados.yaml - ajuste aos nomes das colunas da sua BD.
+    echo == Criado config\base_dados.yaml. Copie o Excel da base para a pasta dados\ com o nome
+    echo    Base_Hemicolectomia.xlsx ^(ou altere "ficheiro:" em config\base_dados.yaml^).
 )
 
 where ollama >nul 2>nul

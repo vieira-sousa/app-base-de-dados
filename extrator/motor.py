@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from .analises import ValorAnalise, escolher_valor, extrair_valores
 from .classificador import classificar
+from .derivados import NAO_APLICAVEL, avaliar_condicao, calcular, parse_chamada
 from .esquema import Campo, ConfigCampos, coagir
 from .llm import ClienteLLM
 from .pdf_texto import Documento, ler_documento, listar_documentos
@@ -147,12 +148,34 @@ def _fundir(c: Campo, r: Candidato | None, l: Candidato | None) -> ResultadoCamp
 
 
 # ----------------------------------------------------------- processamento
+def carregar_correspondencia(caminho: str | Path) -> dict[str, set[str]]:
+    """Tabela local patient_id -> nº(s) de processo, só para verificar que os PDFs são do doente certo.
+
+    CSV com cabeçalho 'patient_id;processo' (ou vírgula). NUNCA vai para a BD nem para o git.
+    """
+    import csv
+
+    caminho = Path(caminho)
+    if not caminho.exists():
+        return {}
+    texto = caminho.read_text(encoding="utf-8-sig")
+    dialeto = csv.Sniffer().sniff(texto.splitlines()[0], delimiters=";,\t")
+    mapa: dict[str, set[str]] = {}
+    for linha in csv.DictReader(texto.splitlines(), dialect=dialeto):
+        chaves = {k.strip().lower(): v for k, v in linha.items() if k}
+        pid, proc = normalizar_id(chaves.get("patient_id")), normalizar_id(chaves.get("processo"))
+        if pid and proc:
+            mapa.setdefault(pid, set()).add(proc.lstrip("0"))
+    return mapa
+
+
 def processar_doente(
     pasta: str | Path,
     cfg: ConfigCampos,
     llm: ClienteLLM | None = None,
     usar_ocr: bool = True,
     progresso: Callable[[str], None] | None = None,
+    correspondencia: dict[str, set[str]] | None = None,
 ) -> ResultadoDoente:
     pasta = Path(pasta)
     id_doente = normalizar_id(pasta.name)
@@ -160,6 +183,7 @@ def processar_doente(
     info = progresso or (lambda s: None)
 
     # 1. ler e classificar
+    processos_vistos: dict[str, list[str]] = {}
     por_tipo: dict[str, list[Documento]] = {"anatomia_patologica": [], "analises": [], "cirurgia": []}
     for caminho in listar_documentos(pasta):
         info(f"{id_doente}: a ler {caminho.name}")
@@ -176,12 +200,25 @@ def processar_doente(
         if doc.tipo is None:
             res.avisos.append(f"{doc.nome}: tipo de documento não reconhecido {pts} — renomeie com prefixo AP_/analises_/cirurgia_")
             continue
-        # verificação de identidade
         p = processo(doc.texto)
-        if p and id_doente and normalizar_id(p.valor) != id_doente:
-            res.avisos.append(
-                f"⚠ {doc.nome}: nº processo no documento ({p.valor}) ≠ pasta ({id_doente}). Confirmar se é do doente certo!")
+        if p:
+            processos_vistos.setdefault(normalizar_id(p.valor).lstrip("0"), []).append(doc.nome)
         por_tipo[doc.tipo].append(doc)
+
+    # verificação de identidade (o nº de processo nunca é guardado nos resultados)
+    if len(processos_vistos) > 1:
+        res.avisos.append("⚠ PDFs com números de processo DIFERENTES nesta pasta: "
+                          + " | ".join(", ".join(f) for f in processos_vistos.values())
+                          + ". Confirmar se são todos do mesmo doente!")
+    if correspondencia is not None:
+        esperados = correspondencia.get(id_doente)
+        if esperados is None:
+            res.avisos.append(f"{id_doente} não está na tabela de correspondência — identidade não verificada.")
+        else:
+            for proc, fichs in processos_vistos.items():
+                if proc not in esperados:
+                    res.avisos.append(f"⚠ {', '.join(fichs)}: nº processo não corresponde a {id_doente} "
+                                      "na tabela de correspondência. Documento de outro doente?")
 
     if not res.documentos:
         res.avisos.append("Nenhum PDF/TXT encontrado na pasta.")
@@ -257,7 +294,8 @@ def processar_doente(
 
     # 3. análises
     if cfg.analises:
-        data_cx = res.campos.get("data_cirurgia").valor if res.campos.get("data_cirurgia") else None
+        rc_cx = res.campos.get(cfg.campo_data_cirurgia)
+        data_cx = rc_cx.valor if rc_cx and isinstance(rc_cx.valor, date) else None
         if data_cx is None and por_tipo["cirurgia"]:
             d = data_documento(por_tipo["cirurgia"][0].texto, preferir=("cirurgia", "interven"))
             data_cx = d.valor if d else None
@@ -267,7 +305,7 @@ def processar_doente(
             valores.extend(extrair_valores(doc.texto, params, ficheiro=doc.nome))
         for a in cfg.analises:
             vs = [v for v in valores if v.parametro == a.nome]
-            cand = escolher_valor(vs, a.regra, data_cx, a.janela_dias, a.unidade)
+            cand = escolher_valor(vs, a.regra, data_cx, a.janela_dias)
             rc = ResultadoCampo(campo=a.nome)
             if cand is not None:
                 rc.valor = cand.valor
@@ -277,20 +315,69 @@ def processar_doente(
                 rc.fonte = "regex" if cand.valor is not None else ""
                 if cand.nota:
                     rc.notas.append(cand.nota)
-                rc.estado = SEM_DADOS if cand.valor is None else (REVER if cand.nota else OK)
+                duvida = any(k in cand.nota for k in ("confirmar", "reportado", "ignorados"))
+                rc.estado = SEM_DADOS if cand.valor is None else (REVER if duvida else OK)
                 if len(vs) > 1 and cand.valor is not None:
                     rc.notas.append(f"{len(vs)} valores disponíveis; regra '{a.regra}'")
             res.campos[a.nome] = rc
 
+    # 4. campos derivados e "não aplicável"
+    _aplicar_regras(res, cfg)
     return res
 
 
+def _aplicar_regras(res: ResultadoDoente, cfg: ConfigCampos) -> None:
+    valores = lambda: {k: c.valor for k, c in res.campos.items()}  # noqa: E731
+    for c in cfg.campos:
+        if not c.derivado:
+            continue
+        rc = res.campos.setdefault(c.nome, ResultadoCampo(campo=c.nome))
+        _nome, args = parse_chamada(c.derivado)
+        r = calcular(c.derivado, valores())
+        if r is None:
+            continue
+        valor, nota = r
+        valor, erro = coagir(c.tipo, valor, c.opcoes)
+        if valor is None:
+            continue
+        if rc.valor is None:
+            rc.valor, rc.fonte, rc.ficheiro = valor, "derivado", ""
+            rc.evidencia = ", ".join(f"{a}={res.campos[a].valor}" for a in args if a in res.campos)
+            rc.notas.append(nota)
+            fontes_duvidosas = [a for a in args if a in res.campos and res.campos[a].estado == REVER]
+            rc.estado = REVER if ("assume" in nota or fontes_duvidosas or erro) else OK
+            if fontes_duvidosas:
+                rc.notas.append(f"depende de campos a rever: {', '.join(fontes_duvidosas)}")
+        elif not _iguais(rc.valor, valor):
+            rc.estado = REVER
+            rc.notas.insert(0, f"DISCORDÂNCIA com valor calculado ({valor!r}: {nota})")
+
+    for c in cfg.campos:
+        if not c.nao_aplicavel_se:
+            continue
+        v = valores()
+        cond = next((x for x in c.nao_aplicavel_se if avaliar_condicao(x, v)), None)
+        if cond is None:
+            continue
+        rc = res.campos.setdefault(c.nome, ResultadoCampo(campo=c.nome))
+        if rc.valor not in (None, NAO_APLICAVEL):
+            rc.notas.insert(0, f"valor extraído {rc.valor!r} substituído por 'não aplicável' ({cond})")
+            rc.estado = REVER
+        else:
+            origem = cond.split()[0]
+            rc.estado = res.campos[origem].estado if origem in res.campos else OK
+        rc.notas = [n for n in rc.notas if n != "LLM desativado"]
+        rc.valor, rc.fonte = NAO_APLICAVEL, "regra"
+        rc.evidencia = cond
+
+
 def processar_lote(pasta_entrada: str | Path, cfg: ConfigCampos, llm: ClienteLLM | None = None,
-                   usar_ocr: bool = True, progresso: Callable[[str], None] | None = None) -> list[ResultadoDoente]:
-    """Cada subpasta de `pasta_entrada` = um doente (nome da pasta = nº processo / ID)."""
+                   usar_ocr: bool = True, progresso: Callable[[str], None] | None = None,
+                   correspondencia: dict[str, set[str]] | None = None) -> list[ResultadoDoente]:
+    """Cada subpasta de `pasta_entrada` = um doente (nome da pasta = patient_id)."""
     pasta_entrada = Path(pasta_entrada)
     pastas = sorted(p for p in pasta_entrada.iterdir() if p.is_dir() and not p.name.startswith("."))
     if not pastas:
         raise FileNotFoundError(
-            f"Sem subpastas em {pasta_entrada}. Estrutura esperada: {pasta_entrada}/<nº processo>/*.pdf")
-    return [processar_doente(p, cfg, llm, usar_ocr, progresso) for p in pastas]
+            f"Sem subpastas em {pasta_entrada}. Estrutura esperada: {pasta_entrada}/<patient_id>/*.pdf")
+    return [processar_doente(p, cfg, llm, usar_ocr, progresso, correspondencia) for p in pastas]

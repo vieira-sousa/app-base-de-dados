@@ -1,0 +1,22 @@
+SERVIÇO DE PATOLOGIA CLÍNICA
+Processo: 7654321
+Data de colheita: 05/05/2025
+
+HEMOGRAMA
+Hemoglobina                       10,9         g/dL         12,0 - 15,5
+Hemoglobina corpuscular média     26,0         pg
+Leucócitos                        7,80         x10^9/L      4,0 - 11,0
+Neutrófilos %                     68,2         %
+Neutrófilos                       5,32         x10^9/L      1,8 - 7,5
+Linfócitos %                      21,0         %
+Linfócitos                        1,64         x10^9/L      1,0 - 4,0
+Plaquetas                         312          x10^9/L      150 - 400
+
+BIOQUÍMICA
+Creatinina                        0,91         mg/dL
+Albumina                          3,6          g/dL         3,5 - 5,2
+Proteína C reativa                1,2          mg/dL        < 0,5
+
+MARCADORES TUMORAIS
+CEA                               12,4         ng/mL        < 5,0
+CA 19-9                           41           U/mL         < 37

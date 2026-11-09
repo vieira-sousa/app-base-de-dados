@@ -14,7 +14,7 @@ from extrator.esquema import CONFIG_PADRAO, carregar_base_dados, carregar_campos
 from extrator.exportar import (exportar_revisao, guardar_json, guardar_revisao_editada, ler_revisao,
                                ler_revisao_completa, preencher_base_dados)
 from extrator.llm import ClienteLLM
-from extrator.motor import OK, REVER, SEM_DADOS, processar_doente
+from extrator.motor import OK, REVER, SEM_DADOS, carregar_correspondencia, processar_doente
 from extrator.pdf_texto import ocr_disponivel
 
 RAIZ = Path(__file__).resolve().parent
@@ -49,8 +49,12 @@ aba1, aba2, aba3 = st.tabs(["1 · Extrair", "2 · Rever", "3 · Preencher BD"])
 
 # ------------------------------------------------------------------ extrair
 with aba1:
-    st.markdown("Estrutura: **uma subpasta por doente**, com o nº de processo como nome, contendo os PDFs.")
-    st.code("entrada/\n  1234567/\n    AP_peca.pdf\n    analises_preop.pdf\n    relatorio_operatorio.pdf\n  7654321/\n    ...")
+    st.markdown("Estrutura: **uma subpasta por doente**, com o **patient_id** como nome, contendo os PDFs.")
+    st.code("entrada/\n  HCD001/\n    AP_peca.pdf\n    analises_preop.pdf\n    cirurgia.pdf\n  HCD002/\n    ...")
+    caminho_corr = RAIZ / "dados" / "correspondencia.csv"
+    corr = carregar_correspondencia(caminho_corr) if caminho_corr.exists() else None
+    st.caption("Verificação de identidade: " + (f"tabela de correspondência com {len(corr)} doentes."
+               if corr is not None else "sem dados/correspondencia.csv — só se verifica se os PDFs de cada pasta têm o mesmo nº de processo."))
     entrada = st.text_input("Pasta de entrada", str(RAIZ / "entrada"))
     saida = st.text_input("Pasta de resultados", str(RAIZ / "resultados"))
     pasta = Path(entrada)
@@ -61,7 +65,7 @@ with aba1:
         estado = st.empty()
         resultados = []
         for i, d in enumerate(doentes):
-            resultados.append(processar_doente(d, cfg, llm, progresso=lambda m: estado.write(m)))
+            resultados.append(processar_doente(d, cfg, llm, progresso=lambda m: estado.write(m), correspondencia=corr))
             barra.progress((i + 1) / len(doentes))
         guardar_json(resultados, Path(saida) / "json")
         caminho = exportar_revisao(resultados, cfg, Path(saida) / f"revisao_{datetime.now():%Y%m%d_%H%M}.xlsx")

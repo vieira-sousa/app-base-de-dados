@@ -10,6 +10,7 @@ import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .analises import REGRAS
+from .derivados import DERIVADOS, NAO_APLICAVEL, parse_chamada, validar_condicao
 from .regras import REGISTO
 from .utils import parse_data, parse_numero, sem_acentos
 
@@ -25,12 +26,16 @@ class Campo(BaseModel):
     descricao: str = ""
     tipo: TipoCampo = "texto"
     documento: TipoDoc
-    metodo: Literal["regex", "llm", "hibrido"] = "hibrido"
+    metodo: Literal["regex", "llm", "hibrido", "derivado"] = "hibrido"
     regex: str | None = None
     padrao: str | None = None
     mapa: dict[str, Any] | None = None
     opcoes: list[str] | None = None
     prioridade: Literal["regex", "llm"] = "regex"
+    # calculado a partir de outros campos (usado se a extração direta não der valor)
+    derivado: str | None = None
+    # condições em que o campo é "não aplicável" (ex.: "approach == aberta")
+    nao_aplicavel_se: list[str] = []
 
     @field_validator("nome")
     @classmethod
@@ -55,6 +60,13 @@ class Campo(BaseModel):
                 raise ValueError(f"campo '{self.nome}': padrao precisa de um grupo de captura (...)")
         if self.tipo == "categoria" and not self.opcoes:
             raise ValueError(f"campo '{self.nome}': tipo categoria exige 'opcoes'")
+        if self.metodo == "derivado" and not self.derivado:
+            raise ValueError(f"campo '{self.nome}': metodo=derivado exige 'derivado'")
+        if self.derivado and parse_chamada(self.derivado)[0] not in DERIVADOS:
+            raise ValueError(f"campo '{self.nome}': derivado '{self.derivado}' não existe. "
+                             f"Disponíveis: {', '.join(sorted(DERIVADOS))}")
+        for cond in self.nao_aplicavel_se:
+            validar_condicao(cond)
         return self
 
     @property
@@ -72,6 +84,12 @@ class ParametroAnalise(BaseModel):
     unidade: str | None = None
     regra: str = "ultimo_antes_cirurgia"
     janela_dias: int | None = None
+    # fator para converter da unidade do relatório para a unidade da BD (ex. PCR mg/dL -> mg/L: 10)
+    conversoes: dict[str, float] = {}
+    # unidades a ignorar (ex. "%" para neutrófilos: queremos o valor absoluto)
+    excluir_unidades: list[str] = []
+    # intervalo plausível na unidade da BD; fora disto -> rever
+    intervalo: list[float] | None = None
 
     @field_validator("regra")
     @classmethod
@@ -84,6 +102,7 @@ class ParametroAnalise(BaseModel):
 class ConfigCampos(BaseModel):
     campos: list[Campo]
     analises: list[ParametroAnalise] = []
+    campo_data_cirurgia: str = "data_cirurgia"   # usado pelas regras temporais das análises
 
     @model_validator(mode="after")
     def _unicos(self):
@@ -92,6 +111,9 @@ class ConfigCampos(BaseModel):
         if dup:
             raise ValueError(f"nomes de campo repetidos: {', '.join(sorted(dup))}")
         return self
+
+    def campos_ordem(self) -> list[str]:
+        return [c.nome for c in self.campos]
 
     def nomes(self) -> list[str]:
         return [c.nome for c in self.campos] + [a.nome for a in self.analises]
@@ -121,7 +143,8 @@ class ConfigBaseDados(BaseModel):
     folha: str | None = None
     linha_cabecalho: int = 1
     coluna_id: str
-    mapeamento: dict[str, str]
+    # "auto": cada campo vai para a coluna com o mesmo nome (aceita sufixos, ex. "operative_time_min_Difícil")
+    mapeamento: dict[str, str] | Literal["auto"] = "auto"
     recodificacao: dict[str, dict[Any, Any]] = {}
     sobrescrever: bool = False
     criar_linhas_novas: bool = True
@@ -161,6 +184,8 @@ def coagir(campo_tipo: str, valor: Any, opcoes: list[str] | None = None) -> tupl
     """Converte um valor para o tipo do campo. Devolve (valor, erro)."""
     if valor is None or (isinstance(valor, str) and valor.strip().lower() in ("", "null", "none", "n/a", "nd")):
         return None, ""
+    if isinstance(valor, str) and valor.strip().lower() in (NAO_APLICAVEL, "nao aplicavel", "não aplicável", "na"):
+        return NAO_APLICAVEL, ""
     try:
         if campo_tipo == "texto":
             return str(valor).strip(), ""

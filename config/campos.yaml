@@ -1,268 +1,539 @@
 # =============================================================================
-#  ESQUEMA DE CAMPOS A EXTRAIR
-# =============================================================================
-#  Cada campo define O QUÊ extrair, DE QUE tipo de documento e COMO.
+#  ESTUDO: Hemicolectomia direita por neoplasia do cólon
+#  Campos com o MESMO nome das colunas da folha DOENTES (mapeamento automático).
+#  Valores legíveis aqui; os códigos numéricos estão em base_dados.yaml (recodificacao).
 #
 #  tipo       : texto | inteiro | decimal | data | booleano | categoria
 #  documento  : anatomia_patologica | analises | cirurgia
-#  metodo     : regex   -> só expressões regulares (rápido, determinístico)
-#               llm     -> só LLM local (texto livre, contexto clínico)
-#               hibrido -> ambos; se discordarem o campo é marcado para revisão
-#  regex      : nome de um extrator incluído (ver extrator/regras/*.py)
-#  padrao     : OU uma expressão regular própria (1.º grupo de captura = valor)
-#  mapa       : (opcional) normalização de valores capturados -> valor final
-#  opcoes     : (categoria) valores permitidos
-#  prioridade : regex | llm  -> qual vence em caso de discordância (default regex)
-#  descricao  : usada no prompt do LLM — seja específico.
+#  metodo     : regex | llm | hibrido | derivado
+#  regex      : extrator incluído (extrator/regras/*.py)   |  padrao: regex própria
+#  derivado   : calculado de outros campos se não houver valor extraído
+#  nao_aplicavel_se : condições -> valor "nao_aplicavel" (código 8, ou o definido na recodificação)
 #
-#  Para adicionar uma variável nova basta acrescentar um bloco aqui.
+#  Variáveis que NÃO estão nos 3 tipos de documento (comorbilidades, complicações,
+#  adjuvância, follow-up, recorrência...) não estão aqui: precisam de outros
+#  documentos (nota de alta, consultas, oncologia).
 # =============================================================================
+
+campo_data_cirurgia: date_surgery
 
 campos:
 
-  # ---------------------------------------------------------------- CIRURGIA
-  - nome: data_cirurgia
+  # ============================================================ RELATÓRIO OPERATÓRIO
+  - nome: date_surgery
     descricao: Data em que a cirurgia foi realizada (AAAA-MM-DD)
     tipo: data
     documento: cirurgia
     metodo: hibrido
     regex: cirurgia.data_cirurgia
 
-  - nome: procedimento
-    descricao: Nome do procedimento cirúrgico principal realizado (ex. hemicolectomia direita, resseção anterior do reto, gastrectomia total, duodenopancreatectomia cefálica)
-    tipo: texto
+  - nome: operation_type
+    descricao: Tipo de colectomia realizada
+    tipo: categoria
+    opcoes: [hemicolectomia_direita, direita_alargada, outro]
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.tipo_colectomia
+
+  - nome: surgical_intent
+    descricao: Intenção da cirurgia (curativa ou paliativa), apenas se explicitamente referida
+    tipo: categoria
+    opcoes: [curativa, paliativa]
     documento: cirurgia
     metodo: llm
 
-  - nome: abordagem
-    descricao: Via de abordagem cirúrgica
-    tipo: categoria
-    opcoes: [laparoscopica, robotica, aberta, convertida]
+  - nome: emergency_surgery
+    descricao: Cirurgia urgente/emergente (true) ou programada/eletiva (false)
+    tipo: booleano
     documento: cirurgia
     metodo: hibrido
-    regex: cirurgia.abordagem
+    regex: colon.urgente
 
-  - nome: conversao
+  - nome: asa
+    descricao: Classificação ASA do doente
+    tipo: categoria
+    opcoes: [I, II, III, IV]
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.asa
+
+  - nome: approach
+    descricao: Via de abordagem INICIAL (se convertida, indicar a via inicial; a conversão é outro campo)
+    tipo: categoria
+    opcoes: [aberta, laparoscopica, robotica]
+    documento: cirurgia
+    metodo: hibrido
+    regex: cirurgia.abordagem_inicial
+
+  - nome: conversion
     descricao: Houve conversão de laparoscopia/robótica para cirurgia aberta?
     tipo: booleano
     documento: cirurgia
     metodo: hibrido
     regex: cirurgia.conversao
+    nao_aplicavel_se: ["approach == aberta"]
 
-  - nome: perdas_hematicas_ml
-    descricao: Perdas hemáticas estimadas em mL (0 se descritas como mínimas/desprezíveis)
-    tipo: inteiro
+  - nome: obstruction
+    descricao: O tumor apresentou-se com oclusão intestinal (indicação/contexto da cirurgia)?
+    tipo: booleano
     documento: cirurgia
-    metodo: hibrido
-    regex: cirurgia.perdas_hematicas_ml
+    metodo: llm
 
-  - nome: duracao_cirurgia_min
+  - nome: perforation
+    descricao: O tumor apresentou-se perfurado ANTES da cirurgia (forma de apresentação)?
+    tipo: booleano
+    documento: cirurgia
+    metodo: llm
+
+  - nome: peritumoral_abscess
+    descricao: Abcesso peritumoral descrito?
+    tipo: booleano
+    documento: cirurgia
+    metodo: llm
+
+  - nome: multivisceral_resection
+    descricao: Foi feita resseção em bloco de outro órgão além do cólon (resseção multivisceral)?
+    tipo: booleano
+    documento: cirurgia
+    metodo: llm
+
+  - nome: additional_organ_resected
+    descricao: Órgão(s) adicional(is) ressecado(s) em bloco (texto curto; null se nenhum)
+    tipo: texto
+    documento: cirurgia
+    metodo: llm
+
+  - nome: operative_time_min
     descricao: Duração da cirurgia em minutos
     tipo: inteiro
     documento: cirurgia
     metodo: hibrido
     regex: cirurgia.duracao_min
 
-  - nome: anastomose
-    descricao: Foi realizada anastomose?
+  - nome: blood_loss_ml
+    descricao: Perdas hemáticas estimadas em mL (0 se descritas como mínimas/desprezíveis)
+    tipo: inteiro
+    documento: cirurgia
+    metodo: hibrido
+    regex: cirurgia.perdas_hematicas_ml
+
+  - nome: perioperative_transfusion
+    descricao: Foi feita transfusão de concentrado eritrocitário durante a cirurgia?
     tipo: booleano
     documento: cirurgia
     metodo: llm
 
-  - nome: anastomose_tecnica
-    descricao: Técnica da anastomose
-    tipo: categoria
-    opcoes: [manual, mecanica, mista]
-    documento: cirurgia
-    metodo: hibrido
-    regex: cirurgia.anastomose_tecnica
-
-  - nome: estoma
-    descricao: Tipo de estoma construído na cirurgia
-    tipo: categoria
-    opcoes: [nenhum, ileostomia, colostomia]
-    documento: cirurgia
-    metodo: hibrido
-    regex: cirurgia.estoma
-
-  - nome: intercorrencias_intraop
-    descricao: Intercorrências ou complicações intraoperatórias descritas (texto curto; null se nenhuma)
-    tipo: texto
+  - nome: tumor_perforation_intraop
+    descricao: Perfuração ou rutura do tumor DURANTE a cirurgia (iatrogénica)?
+    tipo: booleano
     documento: cirurgia
     metodo: llm
 
-  # ----------------------------------------------------- ANATOMIA PATOLÓGICA
-  - nome: tipo_histologico
-    descricao: Tipo histológico do tumor (ex. adenocarcinoma, adenocarcinoma mucinoso, carcinoma de células em anel de sinete)
-    tipo: texto
+  - nome: tumor_spillage
+    descricao: Derrame (spillage) de células/conteúdo tumoral na cavidade durante a cirurgia?
+    tipo: booleano
+    documento: cirurgia
+    metodo: llm
+
+  - nome: peritoneal_implants_intraop
+    descricao: Implantes peritoneais / carcinomatose observados durante a cirurgia?
+    tipo: booleano
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.implantes_peritoneais
+
+  - nome: ascites_intraop
+    descricao: Ascite observada durante a cirurgia?
+    tipo: booleano
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.ascite
+
+  - nome: anastomosis
+    descricao: Foi realizada anastomose?
+    tipo: booleano
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.anastomose_realizada
+
+  - nome: intracorporeal_anastomosis
+    descricao: A anastomose foi intracorpórea (true) ou extracorpórea (false)?
+    tipo: booleano
+    documento: cirurgia
+    metodo: hibrido
+    regex: colon.anastomose_intracorporea
+    nao_aplicavel_se: ["approach == aberta", "anastomosis == false"]
+
+  - nome: metastasectomy_same_operation
+    descricao: Foi feita metastasectomia (ex. hepática) na mesma cirurgia?
+    tipo: booleano
+    documento: cirurgia
+    metodo: llm
+
+  - nome: surgical_r_status
+    descricao: Resseção macroscopicamente completa segundo o cirurgião (R0/R1/R2), só se explicitamente referida
+    tipo: categoria
+    opcoes: [R0, R1, R2]
+    documento: cirurgia
+    metodo: llm
+
+  # ============================================================ ANATOMIA PATOLÓGICA
+  - nome: tumor_location
+    descricao: Localização do tumor no cólon
+    tipo: categoria
+    opcoes: [cego, ascendente, angulo_hepatico, transverso_proximal, outra]
     documento: anatomia_patologica
-    metodo: llm
+    metodo: hibrido
+    regex: colon.localizacao
 
-  - nome: grau_diferenciacao
-    descricao: Grau de diferenciação histológica
+  - nome: tumor_size_mm
+    descricao: Maior dimensão do tumor em milímetros
+    tipo: decimal
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: ap.tamanho_tumor_mm
+
+  - nome: histology
+    descricao: Tipo histológico (mucinoso só se >50% mucinoso; anel de sinete só se >50% células em anel de sinete)
+    tipo: categoria
+    opcoes: [adenocarcinoma_nos, mucinoso, anel_sinete, medular, outro]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.histologia
+
+  - nome: mucinous_component
+    descricao: Existe componente mucinoso (qualquer percentagem)?
+    tipo: booleano
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.componente_mucinoso
+    derivado: componente_mucinoso(histology)
+
+  - nome: mucinous_percent
+    descricao: Percentagem de componente mucinoso
+    tipo: decimal
+    documento: anatomia_patologica
+    metodo: regex
+    regex: colon.percentagem_mucinosa
+
+  - nome: signet_ring_component
+    descricao: Existem células em anel de sinete?
+    tipo: booleano
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.componente_anel_sinete
+    derivado: componente_anel_sinete(histology)
+
+  - nome: grade
+    descricao: Grau histológico (G1-G4, ou baixo/alto grau se for o sistema usado)
     tipo: categoria
     opcoes: [G1, G2, G3, G4, baixo_grau, alto_grau]
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.grau_diferenciacao
 
-  - nome: ptnm_prefixo
-    descricao: Prefixo do estadiamento patológico (y = pós-terapêutica neoadjuvante; r = recidiva). null se nenhum.
+  - nome: tnm_prefix
+    descricao: Prefixo do estadiamento patológico
     tipo: categoria
-    opcoes: [y, r, yr]
+    opcoes: [p, yp, rp, yrp]
     documento: anatomia_patologica
     metodo: regex
     regex: ap.ptnm_prefixo
 
-  - nome: pT
-    descricao: Categoria pT (ex. Tis, T1, T2, T3, T4a, T4b)
-    tipo: texto
+  - nome: t_stage
+    descricao: Categoria pT/ypT
+    tipo: categoria
+    opcoes: [Tis, T0, T1, T2, T3, T4, T4a, T4b, TX]
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.pt
 
-  - nome: pN
-    descricao: Categoria pN (ex. N0, N1a, N1b, N1c, N2a, N2b)
+  - nome: organ_invaded_t4b
+    descricao: Órgão ou estrutura invadida pelo tumor quando pT4b (null se não for T4b)
     tipo: texto
+    documento: anatomia_patologica
+    metodo: llm
+
+  - nome: n_stage
+    descricao: Categoria pN/ypN
+    tipo: categoria
+    opcoes: [N0, N1, N1a, N1b, N1c, N2, N2a, N2b, NX]
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.pn
 
-  - nome: pM
-    descricao: Categoria pM (M1, M1a, M1b, M1c). null se não referido.
-    tipo: texto
+  - nome: m_stage            # auxiliar (não existe na BD): usado para o estádio
+    descricao: Categoria pM, se referida
+    tipo: categoria
+    opcoes: [M1, M1a, M1b, M1c]
     documento: anatomia_patologica
     metodo: regex
     regex: ap.pm
 
-  - nome: ganglios_examinados
+  - nome: nodes_examined
     descricao: Número total de gânglios linfáticos examinados
     tipo: inteiro
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.ganglios_examinados
 
-  - nome: ganglios_positivos
+  - nome: nodes_positive
     descricao: Número de gânglios linfáticos com metástase
     tipo: inteiro
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.ganglios_positivos
 
-  - nome: margem_r
-    descricao: Classificação da margem de resseção (R0, R1, R2)
-    tipo: categoria
-    opcoes: [R0, R1, R2, Rx]
+  - nome: tumor_deposits
+    descricao: Depósitos tumorais presentes?
+    tipo: booleano
     documento: anatomia_patologica
     metodo: hibrido
-    regex: ap.margem_r
+    regex: colon.depositos_tumorais
 
-  - nome: margem_circunferencial_mm
-    descricao: Distância à margem circunferencial / radial em mm
-    tipo: decimal
+  - nome: n_tumor_deposits
+    descricao: Número de depósitos tumorais
+    tipo: inteiro
     documento: anatomia_patologica
-    metodo: hibrido
-    regex: ap.margem_circunferencial_mm
+    metodo: regex
+    regex: colon.n_depositos_tumorais
+    derivado: zero_se_ausente(tumor_deposits)
 
-  - nome: tamanho_tumor_cm
-    descricao: Maior dimensão do tumor em cm
-    tipo: decimal
-    documento: anatomia_patologica
-    metodo: hibrido
-    regex: ap.tamanho_tumor_cm
-
-  - nome: invasao_linfovascular
-    descricao: Invasão linfovascular / linfática presente?
+  - nome: lymphatic_invasion
+    descricao: Invasão linfática (L1) ou linfovascular presente?
     tipo: booleano
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.invasao_linfovascular
 
-  - nome: invasao_venosa
-    descricao: Invasão venosa presente?
+  - nome: venous_invasion
+    descricao: Invasão venosa (intra ou extramural, V1/V2) presente?
     tipo: booleano
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.invasao_venosa
 
-  - nome: invasao_perineural
+  - nome: perineural_invasion
     descricao: Invasão perineural presente?
     tipo: booleano
     documento: anatomia_patologica
     metodo: hibrido
     regex: ap.invasao_perineural
 
-  - nome: grau_regressao
-    descricao: Grau de regressão tumoral após neoadjuvância, com o sistema usado (ex. "Mandard 3", "TRG 2", "Dworak 3")
-    tipo: texto
+  - nome: tumor_budding
+    descricao: Tumor budding (Bd1 = baixo, Bd2 = intermédio, Bd3 = alto)
+    tipo: categoria
+    opcoes: [baixo, intermedio, alto]
     documento: anatomia_patologica
     metodo: hibrido
-    regex: ap.grau_regressao
+    regex: colon.budding
 
-  - nome: estado_mmr
-    descricao: Estado das proteínas de reparação (MMR) por imunohistoquímica
+  - nome: pathological_r_status
+    descricao: Classificação R na anatomia patológica
+    tipo: categoria
+    opcoes: [R0, R1, R2, Rx]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: ap.margem_r
+
+  - nome: positive_margin
+    descricao: Margem de resseção envolvida pelo tumor?
+    tipo: booleano
+    documento: anatomia_patologica
+    metodo: derivado
+    derivado: margem_de_r(pathological_r_status)
+
+  - nome: tumor_regression_grade
+    descricao: Grau de regressão após neoadjuvância (completa, marcada, parcial, mínima/ausente)
+    tipo: categoria
+    opcoes: [resposta_completa, resposta_marcada, resposta_parcial, resposta_minima]
+    documento: anatomia_patologica
+    metodo: llm
+    nao_aplicavel_se: ["tnm_prefix == p"]
+
+  - nome: pathological_stage
+    descricao: Estádio patológico AJCC (I-IV)
+    tipo: categoria
+    opcoes: [I, II, III, IV]
+    documento: anatomia_patologica
+    metodo: derivado
+    derivado: estadio_ajcc(t_stage, n_stage, m_stage)
+
+  - nome: pathological_perforation
+    descricao: Perfuração tumoral descrita na peça?
+    tipo: booleano
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.perfuracao_ap
+
+  # ----------------------------------------------------------------- molecular
+  - nome: mmr_status
+    descricao: Estado MMR por imunohistoquímica (pMMR proficiente / dMMR deficiente)
     tipo: categoria
     opcoes: [pMMR, dMMR]
     documento: anatomia_patologica
-    metodo: llm
+    metodo: hibrido
+    regex: colon.mmr
+    derivado: mmr_de_proteinas(mlh1, pms2, msh2, msh6)
+
+  - nome: mlh1
+    descricao: Expressão de MLH1
+    tipo: categoria
+    opcoes: [retido, perdido]
+    documento: anatomia_patologica
+    metodo: regex
+    regex: colon.mlh1
+
+  - nome: pms2
+    descricao: Expressão de PMS2
+    tipo: categoria
+    opcoes: [retido, perdido]
+    documento: anatomia_patologica
+    metodo: regex
+    regex: colon.pms2
+
+  - nome: msh2
+    descricao: Expressão de MSH2
+    tipo: categoria
+    opcoes: [retido, perdido]
+    documento: anatomia_patologica
+    metodo: regex
+    regex: colon.msh2
+
+  - nome: msh6
+    descricao: Expressão de MSH6
+    tipo: categoria
+    opcoes: [retido, perdido]
+    documento: anatomia_patologica
+    metodo: regex
+    regex: colon.msh6
+
+  - nome: msi_status
+    descricao: Instabilidade de microssatélites
+    tipo: categoria
+    opcoes: [MSS/MSI-L, MSI-H]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.msi
+
+  - nome: kras
+    descricao: Estado mutacional KRAS
+    tipo: categoria
+    opcoes: [WT, mutado]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.kras
+
+  - nome: nras
+    descricao: Estado mutacional NRAS
+    tipo: categoria
+    opcoes: [WT, mutado]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.nras
+
+  - nome: braf
+    descricao: Estado mutacional BRAF (V600E)
+    tipo: categoria
+    opcoes: [WT, mutado]
+    documento: anatomia_patologica
+    metodo: hibrido
+    regex: colon.braf
 
 
 # =============================================================================
-#  ANÁLISES CLÍNICAS
+#  ANÁLISES — unidade = unidade da BD (DICIONARIO). 'conversoes' = fator a aplicar
+#  quando o relatório vem noutra unidade. Valores fora de 'intervalo' vão para revisão.
 # =============================================================================
-#  Cada parâmetro gera um campo "<nome>". Os valores são extraídos por regex
-#  (tabelas numéricas são onde os LLM pequenos mais erram).
-#
-#  regra: qual valor escolher quando há vários relatórios/datas
-#    ultimo_antes_cirurgia | primeiro_apos_cirurgia | ultimo | primeiro | maximo | minimo
-#  janela_dias: (opcional) só considera valores até N dias da cirurgia
-# =============================================================================
-
 analises:
+  - nome: hb_preop
+    aliases: ["Hemoglobina", "Hgb", "Hb"]
+    unidade: g/dL
+    conversoes: {"g/L": 0.1}
+    intervalo: [3, 25]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: wbc_preop
+    aliases: ["Leucócitos", "Leucocitos", "Leuc."]
+    unidade: 10^9/L
+    conversoes: {"10^3/uL": 1, "10^3/mm3": 1, "/uL": 0.001, "/mm3": 0.001}
+    intervalo: [0.1, 100]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: neutrophils_preop
+    aliases: ["Neutrófilos", "Neutrofilos", "Neut."]
+    unidade: 10^9/L
+    conversoes: {"10^3/uL": 1, "10^3/mm3": 1, "/uL": 0.001, "/mm3": 0.001}
+    excluir_unidades: ["%"]
+    intervalo: [0, 80]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: lymphocytes_preop
+    aliases: ["Linfócitos", "Linfocitos", "Linf."]
+    unidade: 10^9/L
+    conversoes: {"10^3/uL": 1, "10^3/mm3": 1, "/uL": 0.001, "/mm3": 0.001}
+    excluir_unidades: ["%"]
+    intervalo: [0, 50]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: platelets_preop
+    aliases: ["Plaquetas", "PLT"]
+    unidade: 10^9/L
+    conversoes: {"10^3/uL": 1, "10^3/mm3": 1, "/uL": 0.001, "/mm3": 0.001}
+    intervalo: [5, 2000]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: crp_preop
+    aliases: ["Proteína C reactiva", "Proteína C reativa", "Proteina C reactiva", "Proteina C reativa", "PCR"]
+    unidade: mg/L
+    conversoes: {"mg/dL": 10}
+    intervalo: [0, 600]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: albumin_preop
+    aliases: ["Albumina"]
+    unidade: g/L
+    conversoes: {"g/dL": 10}
+    intervalo: [10, 60]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
+  - nome: creatinine_preop
+    aliases: ["Creatinina"]
+    unidade: mg/dL
+    conversoes: {"umol/L": 0.01131}
+    intervalo: [0.1, 15]
+    regra: ultimo_antes_cirurgia
+    janela_dias: 30
+
   - nome: cea_preop
     aliases: ["CEA", "Antigénio carcinoembrionário", "Antigenio carcinoembrionario", "Ag. carcinoembrionário"]
     unidade: ng/mL
+    conversoes: {"ug/L": 1}
     regra: ultimo_antes_cirurgia
     janela_dias: 90
 
-  - nome: ca19_9_preop
+  - nome: ca199_preop
     aliases: ["CA 19-9", "CA 19.9", "CA19-9", "CA19.9"]
     unidade: U/mL
+    conversoes: {"kU/L": 1}
     regra: ultimo_antes_cirurgia
     janela_dias: 90
 
-  - nome: hemoglobina_preop
-    aliases: ["Hemoglobina", "Hgb", "Hb"]
-    unidade: g/dL
-    regra: ultimo_antes_cirurgia
-    janela_dias: 30
+  - nome: cea_last_followup
+    aliases: ["CEA", "Antigénio carcinoembrionário", "Antigenio carcinoembrionario", "Ag. carcinoembrionário"]
+    unidade: ng/mL
+    conversoes: {"ug/L": 1}
+    regra: ultimo_apos_cirurgia
 
-  - nome: leucocitos_preop
-    aliases: ["Leucócitos", "Leucocitos", "Leuc."]
-    unidade: x10^9/L
-    regra: ultimo_antes_cirurgia
-    janela_dias: 30
-
-  - nome: plaquetas_preop
-    aliases: ["Plaquetas", "PLT"]
-    unidade: x10^9/L
-    regra: ultimo_antes_cirurgia
-    janela_dias: 30
-
-  - nome: albumina_preop
-    aliases: ["Albumina"]
-    unidade: g/dL
-    regra: ultimo_antes_cirurgia
-    janela_dias: 30
-
-  - nome: creatinina_preop
-    aliases: ["Creatinina"]
-    unidade: mg/dL
-    regra: ultimo_antes_cirurgia
-    janela_dias: 30
-
-  - nome: pcr_max_pos_op
-    aliases: ["Proteína C reactiva", "Proteína C reativa", "Proteina C reactiva", "Proteina C reativa", "PCR"]
-    unidade: mg/dL
-    regra: maximo_apos_cirurgia
-    janela_dias: 7
+  - nome: ca199_last_followup
+    aliases: ["CA 19-9", "CA 19.9", "CA19-9", "CA19.9"]
+    unidade: U/mL
+    conversoes: {"kU/L": 1}
+    regra: ultimo_apos_cirurgia

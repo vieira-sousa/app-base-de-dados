@@ -10,39 +10,59 @@ from .regras.comum import data_documento
 from .utils import excerto, normalizar, parse_numero
 
 REGRAS = {
-    "ultimo_antes_cirurgia", "primeiro_apos_cirurgia", "maximo_apos_cirurgia",
-    "minimo_apos_cirurgia", "ultimo", "primeiro", "maximo", "minimo",
+    "ultimo_antes_cirurgia", "primeiro_apos_cirurgia", "ultimo_apos_cirurgia",
+    "maximo_apos_cirurgia", "minimo_apos_cirurgia", "ultimo", "primeiro", "maximo", "minimo",
 }
 
 
 @dataclass
 class ValorAnalise:
     parametro: str
-    valor: float
-    comparador: str     # "", "<", ">"
-    unidade: str
+    valor: float            # já na unidade da BD
+    comparador: str         # "", "<", ">"
+    unidade: str            # unidade lida no relatório
     data: date | None
     ficheiro: str
     evidencia: str
+    nota: str = ""
 
 
 def _padrao_alias(alias: str) -> re.Pattern:
-    partes = [re.escape(p) for p in alias.split()]
-    nome = r"\s*".join(partes)
+    nome = r"\s*".join(re.escape(p) for p in alias.split())
     return re.compile(
         r"^[ \t*]*(?:[A-Za-z]{1,6}\s*[-–.]\s*)?"        # prefixo de amostra opcional (S-, Soro -)
         + nome +
         r"(?![A-Za-zÀ-ÿ0-9])"                           # o alias termina aqui (Hb ≠ HbA1c)
-        r"[ \t]*(?:\([^)\n]{0,30}\))?"                  # "(Hb)" opcional
-        r"[ \t.:_*\-]*"                                 # separadores / pontilhado / flags
-        r"([<>≤≥]?)[ \t]*(\d+(?:[.,]\d+)?)"             # valor
-        r"[ \t]*([^\s\d][^\s]*)?",                       # unidade (opcional)
+        r"([ \t]*(?:\([^)\n]{0,30}\))?[ \t.:_*#%\-]*)"  # grupo 1: "(Hb)", pontilhado, #, % ...
+        r"([<>≤≥]?)[ \t]*(\d+(?:[.,]\d+)?)"             # grupos 2-3: comparador e valor
+        r"[ \t]*([^\s\d][^\s]*)?",                       # grupo 4: unidade (opcional)
         re.IGNORECASE | re.MULTILINE,
     )
 
 
-def _norm_unidade(u: str) -> str:
-    return normalizar(u).replace("μ", "u").replace("µ", "u").replace(" ", "").replace("*", "")
+def norm_unidade(u: str | None) -> str:
+    if not u:
+        return ""
+    s = normalizar(u).replace("μ", "u").replace("µ", "u").replace(" ", "").replace("*", "")
+    s = s.replace("⁹", "^9").replace("³", "^3").replace("x10e", "x10^").replace("10e", "10^")
+    return s.lstrip("x")
+
+
+def _converter(valor: float, unidade_lida: str, p: dict) -> tuple[float, str]:
+    """Converte para a unidade da BD. Devolve (valor, nota)."""
+    destino = norm_unidade(p.get("unidade"))
+    lida = norm_unidade(unidade_lida)
+    if not destino:
+        return valor, ""
+    if not lida:
+        return valor, f"unidade não indicada no relatório (BD em {p['unidade']}) — confirmar"
+    if lida == destino:
+        return valor, ""
+    fatores = {norm_unidade(k): v for k, v in (p.get("conversoes") or {}).items()}
+    if lida in fatores:
+        novo = round(valor * fatores[lida], 4)
+        return novo, f"convertido de {valor:g} {unidade_lida} para {novo:g} {p['unidade']}"
+    return valor, f"unidade '{unidade_lida}' ≠ '{p['unidade']}' e sem conversão definida — confirmar"
 
 
 def extrair_valores(texto: str, parametros: list[dict], ficheiro: str = "") -> list[ValorAnalise]:
@@ -50,37 +70,45 @@ def extrair_valores(texto: str, parametros: list[dict], ficheiro: str = "") -> l
     data_doc = data_cand.valor if data_cand else None
     resultados: list[ValorAnalise] = []
     for p in parametros:
-        vistos: set[int] = set()
+        excluir = {norm_unidade(u) for u in p.get("excluir_unidades") or []}
+        achado = None
         for alias in p["aliases"]:
             for m in _padrao_alias(alias).finditer(texto):
-                if m.start() in vistos:
-                    continue
-                vistos.add(m.start())
-                valor = parse_numero(m[2])
+                unidade = (m[4] or "").strip()
+                entre = m[1] or ""
+                if excluir and (norm_unidade(unidade) in excluir or any(e and e in norm_unidade(entre) for e in excluir)):
+                    continue  # ex.: "Neutrófilos % 65" quando queremos o valor absoluto
+                valor = parse_numero(m[3])
                 if valor is None:
                     continue
-                comparador = {"≤": "<", "≥": ">"}.get(m[1], m[1])
-                resultados.append(ValorAnalise(
-                    parametro=p["nome"], valor=valor, comparador=comparador,
-                    unidade=(m[3] or "").strip(), data=data_doc, ficheiro=ficheiro,
-                    evidencia=excerto(texto, m.start(), m.end(), 15),
-                ))
-                break  # um valor por alias por documento (primeira linha)
-            if any(r.parametro == p["nome"] and r.ficheiro == ficheiro for r in resultados):
+                achado = (m, valor, unidade)
                 break
+            if achado:
+                break
+        if not achado:
+            continue
+        m, valor, unidade = achado
+        convertido, nota = _converter(valor, unidade, p)
+        intervalo = p.get("intervalo")
+        if intervalo and not (intervalo[0] <= convertido <= intervalo[1]):
+            nota = "; ".join(x for x in (nota, f"fora do intervalo plausível {intervalo} — confirmar") if x)
+        resultados.append(ValorAnalise(
+            parametro=p["nome"], valor=convertido, comparador={"≤": "<", "≥": ">"}.get(m[2], m[2]),
+            unidade=unidade, data=data_doc, ficheiro=ficheiro,
+            evidencia=excerto(texto, m.start(), m.end(), 15), nota=nota,
+        ))
     return resultados
 
 
 def escolher_valor(valores: list[ValorAnalise], regra: str, data_cirurgia: date | None,
-                   janela_dias: int | None = None, unidade_esperada: str | None = None) -> Candidato | None:
+                   janela_dias: int | None = None) -> Candidato | None:
     if regra not in REGRAS:
         raise ValueError(f"Regra de análise desconhecida: {regra}")
     if not valores:
         return None
 
     notas = []
-    relativos = regra.endswith("_cirurgia")
-    if relativos:
+    if regra.endswith("_cirurgia"):
         if data_cirurgia is None:
             return Candidato(None, "", nota=f"{len(valores)} valor(es) encontrados mas sem data de cirurgia para aplicar '{regra}'")
         sem_data = [v for v in valores if v.data is None]
@@ -99,9 +127,8 @@ def escolher_valor(valores: list[ValorAnalise], regra: str, data_cirurgia: date 
     if not elegiveis:
         return Candidato(None, "", nota="; ".join(notas + [f"nenhum valor cumpre a regra '{regra}'"]))
 
-    ordem_data = lambda v: v.data or date.min  # noqa: E731
-    if regra in ("ultimo_antes_cirurgia", "ultimo"):
-        escolhido = max(elegiveis, key=ordem_data)
+    if regra in ("ultimo_antes_cirurgia", "ultimo", "ultimo_apos_cirurgia"):
+        escolhido = max(elegiveis, key=lambda v: v.data or date.min)
     elif regra in ("primeiro_apos_cirurgia", "primeiro"):
         escolhido = min(elegiveis, key=lambda v: v.data or date.max)
     elif regra.startswith("maximo"):
@@ -111,12 +138,8 @@ def escolher_valor(valores: list[ValorAnalise], regra: str, data_cirurgia: date 
 
     if escolhido.comparador:
         notas.append(f"valor reportado como '{escolhido.comparador}{escolhido.valor:g}'")
-    if unidade_esperada and escolhido.unidade and _norm_unidade(escolhido.unidade) != _norm_unidade(unidade_esperada):
-        notas.append(f"unidade '{escolhido.unidade}' ≠ esperada '{unidade_esperada}'")
+    if escolhido.nota:
+        notas.append(escolhido.nota)
     data_txt = escolhido.data.isoformat() if escolhido.data else "s/ data"
-    return Candidato(
-        escolhido.valor,
-        f"[{data_txt}] {escolhido.evidencia}",
-        ficheiro=escolhido.ficheiro,
-        nota="; ".join(notas),
-    )
+    return Candidato(escolhido.valor, f"[{data_txt}] {escolhido.evidencia}",
+                     ficheiro=escolhido.ficheiro, nota="; ".join(notas))

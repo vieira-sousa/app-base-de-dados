@@ -47,12 +47,12 @@ def pt(texto: str) -> Candidato | None:
 
 @regista("ap.ptnm_prefixo")
 def ptnm_prefixo(texto: str) -> Candidato | None:
+    """'p', 'yp' (pós-neoadjuvância), 'rp' (recidiva) ou 'yrp'."""
     m = _melhor_t(texto)
     if not m:
         return None
     pref = "".join(sorted(set(m[1].lower()), key="yr".index))
-    return Candidato(pref or None, excerto(texto, m.start(), m.end(), 40),
-                     nota="" if pref else "sem prefixo y/r")
+    return Candidato(pref + "p", excerto(texto, m.start(), m.end(), 40))
 
 
 @regista("ap.pn")
@@ -190,6 +190,14 @@ RE_DIM = re.compile(
 RE_CTX_TUMOR = re.compile(r"tumor|tumefa[çc][ãa]o|neoplasia|les[ãa]o|massa|ulcera[çc][ãa]o|maior\s+(?:dimens|eixo|di[aâ]metro)", F)
 
 
+@regista("ap.tamanho_tumor_mm")
+def tamanho_tumor_mm(texto: str) -> Candidato | None:
+    c = tamanho_tumor_cm(texto)
+    if c is not None and c.valor is not None:
+        c.valor = round(c.valor * 10, 1)
+    return c
+
+
 @regista("ap.tamanho_tumor_cm")
 def tamanho_tumor_cm(texto: str) -> Candidato | None:
     # preferir frase "maior dimensão/eixo"
@@ -255,7 +263,7 @@ def _invasao(texto: str, termo: str, codigo: str | None) -> Candidato | None:
         if m:
             return Candidato(m[1] != "0", excerto(texto, m.start(), m.end()))
     # 2) "sem invasão X" / "ausência de invasão X"
-    m = re.search(rf"(?:sem|aus[eê]ncia\s+de|n[ãa]o\s+(?:se\s+)?(?:identifica|observa|evidencia)[a-z]*)\s+(?:\w+\s+){{0,2}}{termo}", texto, F)
+    m = re.search(rf"(?:sem|aus[eê]ncia\s+de|n[ãa]o\s+(?:se\s+)?(?:identifica|observa|evidencia)[a-z]*)\s+(?:\w+\s+){{0,3}}{termo}", texto, F)
     if m:
         return Candidato(False, excerto(texto, m.start(), m.end()))
     # 3) "invasão X: presente/ausente" (até 40 caracteres depois)

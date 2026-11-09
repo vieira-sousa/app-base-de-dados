@@ -26,5 +26,7 @@ num_threads:
 # Campos 'hibrido' (regex + LLM):
 #   sempre          -> o LLM confirma também o que a regex encontrou (mais lento, deteta discordâncias)
 #   se_regex_falhar -> o LLM só é chamado para os campos que a regex não encontrou (mais rápido)
-# Sugestão: 'sempre' e deixar a correr durante a noite; 'se_regex_falhar' para testes rápidos.
-llm_em_hibridos: sempre
+# Com ~60 campos e um modelo 3B em CPU, 'sempre' torna cada relatório muito mais lento e um
+# modelo pequeno gera discordâncias falsas em campos que a regex já resolve bem.
+# Padrão para este computador: se_regex_falhar. Mudar para 'sempre' para dupla verificação.
+llm_em_hibridos: se_regex_falhar

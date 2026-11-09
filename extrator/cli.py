@@ -71,10 +71,16 @@ def cmd_extrair(args) -> int:
 
     # aceita a pasta-mãe (várias subpastas) ou a pasta de um único doente
     tem_subpastas = any(p.is_dir() and not p.name.startswith(".") for p in entrada.iterdir())
+    from .esquema import RAIZ
+    from .motor import carregar_correspondencia
+
+    caminho_corr = Path(args.correspondencia) if args.correspondencia else RAIZ / "dados" / "correspondencia.csv"
+    corr = carregar_correspondencia(caminho_corr) if caminho_corr.exists() else None
+    print(f"Tabela de correspondência: {caminho_corr if corr is not None else 'não usada'}")
     if tem_subpastas:
-        resultados = processar_lote(entrada, cfg, llm, not args.sem_ocr, prog)
+        resultados = processar_lote(entrada, cfg, llm, not args.sem_ocr, prog, corr)
     else:
-        resultados = [processar_doente(entrada, cfg, llm, not args.sem_ocr, prog)]
+        resultados = [processar_doente(entrada, cfg, llm, not args.sem_ocr, prog, corr)]
 
     guardar_json(resultados, saida / "json")
     carimbo = datetime.now().strftime("%Y%m%d_%H%M")
@@ -99,8 +105,8 @@ def cmd_preencher(args) -> int:
     r = preencher_base_dados(revisao, cfg, bd, caminho_bd=args.bd, simular=args.simular,
                              pasta_registo=Path(args.revisao).parent)
     print(("SIMULAÇÃO — nada foi gravado.\n" if args.simular else "") + json.dumps(r, ensure_ascii=False, indent=2))
-    if r["colunas_em_falta"]:
-        print("ATENÇÃO: colunas do mapeamento que não existem na BD:", ", ".join(r["colunas_em_falta"]))
+    if r["campos_sem_coluna"]:
+        print("Campos sem coluna na BD (não escritos):", ", ".join(r["campos_sem_coluna"]))
     return 0
 
 
@@ -143,15 +149,19 @@ def cmd_testar_llm(args) -> int:
 
     from .esquema import RAIZ, coagir
 
-    fixtures = RAIZ / "tests" / "fixtures"
+    fixtures = RAIZ / "tests" / "fixtures" / "colon"
     casos = [
-        ("ap_reto.txt", "anatomia_patologica", {
-            "pT": "T3", "pN": "N1b", "ganglios_examinados": 18, "ganglios_positivos": 2,
-            "margem_r": "R0", "grau_diferenciacao": "G2", "invasao_linfovascular": True,
-            "invasao_perineural": False, "estado_mmr": "pMMR", "tamanho_tumor_cm": 3.5}),
-        ("cirurgia_reto.txt", "cirurgia", {
-            "abordagem": "laparoscopica", "conversao": False, "perdas_hematicas_ml": 150,
-            "estoma": "ileostomia", "anastomose": True, "anastomose_tecnica": "mecanica"}),
+        ("AP_hemicolectomia.txt", "anatomia_patologica", {
+            "tumor_location": "ascendente", "tumor_size_mm": 42.0, "histology": "adenocarcinoma_nos",
+            "mucinous_component": True, "grade": "G2", "t_stage": "T3", "n_stage": "N1b",
+            "nodes_examined": 24, "nodes_positive": 3, "tumor_deposits": True, "lymphatic_invasion": True,
+            "venous_invasion": False, "perineural_invasion": True, "tumor_budding": "baixo",
+            "pathological_r_status": "R0", "mmr_status": "pMMR", "organ_invaded_t4b": None}),
+        ("cirurgia_hemicolectomia.txt", "cirurgia", {
+            "operation_type": "hemicolectomia_direita", "emergency_surgery": False, "approach": "laparoscopica",
+            "conversion": False, "blood_loss_ml": 50, "anastomosis": True, "intracorporeal_anastomosis": True,
+            "ascites_intraop": False, "peritoneal_implants_intraop": False, "multivisceral_resection": None,
+            "perioperative_transfusion": None, "tumor_spillage": None}),
     ]
     args.sem_llm = False
     llm = _cliente_llm(args)
@@ -174,11 +184,13 @@ def cmd_testar_llm(args) -> int:
             if c.nome not in esperado:
                 continue
             obtido = coagir(c.tipo, res[c.nome].valor, c.opcoes)[0] if c.nome in res else None
+            # null esperado = o LLM não deve inventar (campo não descrito no relatório)
             certo = obtido == esperado[c.nome]
             acertos += certo
             total += 1
             print(f"  {'ok ' if certo else 'ERR'} {c.nome:24} esperado={esperado[c.nome]!s:14} obtido={obtido!s}")
     print(f"\nAcerto: {acertos}/{total} ({100 * acertos / max(total, 1):.0f}%) com {llm.cfg.modelo}")
+    print("(No uso real o regex trata a maioria destes campos; isto mede só o LLM.)")
     return 0
 
 
@@ -194,11 +206,13 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_verificar)
 
     s = sub.add_parser("extrair", help="processa PDFs e gera folha de revisão")
-    s.add_argument("entrada", help="pasta com uma subpasta por doente (nome = nº processo)")
+    s.add_argument("entrada", help="pasta com uma subpasta por doente (nome = patient_id)")
     s.add_argument("--saida", default="resultados")
     s.add_argument("--sem-llm", action="store_true", help="só regex (rápido, sem Ollama)")
     s.add_argument("--sem-ocr", action="store_true")
     s.add_argument("--modelo", help="sobrepõe o modelo de llm.yaml")
+    s.add_argument("--correspondencia", help="CSV patient_id;processo para verificar identidade "
+                                             "(padrão: dados/correspondencia.csv, se existir)")
     s.set_defaults(fn=cmd_extrair)
 
     s = sub.add_parser("preencher", help="escreve valores aprovados na base de dados")
